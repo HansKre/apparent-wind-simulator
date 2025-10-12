@@ -779,11 +779,18 @@ export function WindSimulator() {
   function simulateGust() {
     if (isSimulating) return;
 
+    // Capture current values in local variables BEFORE animation starts
+    // This ensures we use the actual current values, not stale state
+    const capturedWindSpeed = trueWindSpeed;
+    const capturedWindAngle = trueWindAngle;
+    const capturedBoatSpeed = boatSpeed;
+    const capturedBoatDirection = boatDirection;
+
     // Store base values (all current state before simulation)
-    setBaseWindSpeed(trueWindSpeed);
-    setBaseWindAngle(trueWindAngle);
-    setBaseBoatSpeed(boatSpeed);
-    setBaseBoatDirection(boatDirection);
+    setBaseWindSpeed(capturedWindSpeed);
+    setBaseWindAngle(capturedWindAngle);
+    setBaseBoatSpeed(capturedBoatSpeed);
+    setBaseBoatDirection(capturedBoatDirection);
     setIsSimulating(true);
 
     const startTime = Date.now();
@@ -805,6 +812,8 @@ export function WindSimulator() {
     // Relationship: For every 1 knot of gust, boat speed increases by ~0.4 knots
     // This represents realistic acceleration from increased wind power
     const inducedSpeedIncrease = gustSpeed * 0.4;
+
+    // Use captured values in the animation function
 
     // Aggressive easing function for gust (hits hard and fast)
     function easeOutExpo(x: number): number {
@@ -830,10 +839,10 @@ export function WindSimulator() {
 
       if (elapsed >= totalDuration) {
         // Animation complete - restore all values to exactly what they were before simulation
-        setTrueWindSpeed(baseWindSpeed);
-        setTrueWindAngle(baseWindAngle);
-        setBoatSpeed(baseBoatSpeed);
-        setBoatDirection(baseBoatDirection);
+        setTrueWindSpeed(capturedWindSpeed);
+        setTrueWindAngle(capturedWindAngle);
+        setBoatSpeed(capturedBoatSpeed);
+        setBoatDirection(capturedBoatDirection);
         setIsSimulating(false);
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
@@ -882,8 +891,12 @@ export function WindSimulator() {
       }
 
       // Apply multipliers to base values
-      setTrueWindSpeed(baseWindSpeed + gustSpeed * windMultiplier);
-      setBoatSpeed(baseBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier);
+      setTrueWindSpeed(capturedWindSpeed + gustSpeed * windMultiplier);
+      setBoatSpeed(capturedBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier);
+
+      // Ensure boat direction and wind angle remain constant during simulation
+      setBoatDirection(capturedBoatDirection);
+      setTrueWindAngle(capturedWindAngle);
 
       animationRef.current = requestAnimationFrame(animate);
     }
