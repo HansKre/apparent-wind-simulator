@@ -935,12 +935,6 @@ export function WindSimulator() {
       </div>
 
       <DataPanel
-        trueWindSpeed={trueWindSpeed}
-        trueWindAngle={trueWindAngle}
-        boatSpeed={boatSpeed}
-        boatDirection={boatDirection}
-        apparentWindSpeed={apparentWindSpeed}
-        apparentWindAngle={apparentWindAngle}
         gustSpeed={gustSpeed}
         isSimulating={isSimulating}
         onGustSpeedChange={setGustSpeed}
