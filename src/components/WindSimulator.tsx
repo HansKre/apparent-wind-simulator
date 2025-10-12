@@ -14,18 +14,21 @@ interface DragState {
   dragType: 'trueWind' | 'inducedWind' | null;
   startX: number;
   startY: number;
+  startBoatDirection?: number;
+  startBoatSpeed?: number;
 }
 
 export default function WindSimulator() {
   // Wind state
   const [trueWindSpeed, setTrueWindSpeed] = useState(10);
-  const [trueWindAngle, setTrueWindAngle] = useState(90); // 90° = East (horizontal right)
+  const [trueWindAngle, setTrueWindAngle] = useState(270); // 270° = West (horizontal left)
   const [boatSpeed, setBoatSpeed] = useState(10);
-  const [boatDirection, setBoatDirection] = useState(180); // 180° = South (down)
+  const [boatDirection, setBoatDirection] = useState(0); // 0° = North (up)
 
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const boatImageRef = useRef<HTMLImageElement | null>(null);
 
   // Drag state
   const [dragState, setDragState] = useState<DragState>({
@@ -37,6 +40,20 @@ export default function WindSimulator() {
 
   // Canvas dimensions
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [boatImageLoaded, setBoatImageLoaded] = useState(false);
+
+  // Load boat SVG
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {
+      boatImageRef.current = img;
+      setBoatImageLoaded(true);
+    };
+    img.onerror = (err) => {
+      console.error('Failed to load boat SVG:', err);
+    };
+    img.src = '/boat.svg';
+  }, []);
 
   // Calculate apparent wind
   const apparent = calculateApparentWind(trueWindSpeed, trueWindAngle - boatDirection, boatSpeed);
@@ -78,16 +95,45 @@ export default function WindSimulator() {
     // Clear canvas
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
 
-    // Draw vectors
+    // Calculate vector endpoints for the triangle
+    // Boat front: The bow of the boat extends in the direction of travel
+    const boatFrontOffset = 40; // pixels from center to front of boat
+    const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
+    const boatFrontX = centerX + boatFrontVector.x;
+    const boatFrontY = centerY + boatFrontVector.y;
+
+    // Induced wind: arrow comes from opposite direction to boat, ending at boat front
+    // Arrow points TOWARD boat front, with arrowhead AT boat front
+    // Vector points in the same direction as boat (to position start point on opposite side)
+    const inducedVectorDirection = polarToCartesian(boatSpeed * scale, normalizeAngle(boatDirection + 180));
+    const inducedStartX = boatFrontX - inducedVectorDirection.x; // Start in opposite direction from boat
+    const inducedStartY = boatFrontY - inducedVectorDirection.y;
+    const inducedEndX = boatFrontX; // Arrow ends at boat front with arrowhead pointing at boat
+    const inducedEndY = boatFrontY;
+
+    // True wind: arrowhead connects to START of induced wind (the end away from boat)
+    const trueWindVector = polarToCartesian(trueWindSpeed * scale, trueWindAngle);
+    const trueWindHeadX = inducedStartX;
+    const trueWindHeadY = inducedStartY;
+    const trueWindTailX = inducedStartX - trueWindVector.x;
+    const trueWindTailY = inducedStartY - trueWindVector.y;
+
+    // Apparent wind: arrowhead at boat front, tail connects to tail of true wind
+    const apparentHeadX = boatFrontX;
+    const apparentHeadY = boatFrontY;
+    const apparentTailX = trueWindTailX;
+    const apparentTailY = trueWindTailY;
+
+    // Draw vectors (from start to end, with arrowhead at end)
     drawBoat(ctx, centerX, centerY, boatDirection);
-    drawTrueWind(ctx, centerX, centerY, trueWindSpeed, trueWindAngle);
-    drawInducedWind(ctx, centerX, centerY, boatSpeed, boatDirection);
-    drawApparentWind(ctx, centerX, centerY, apparentWindSpeed, apparentWindAngle);
+    drawInducedWind(ctx, inducedStartX, inducedStartY, inducedEndX, inducedEndY);
+    drawTrueWind(ctx, trueWindTailX, trueWindTailY, trueWindHeadX, trueWindHeadY);
+    drawApparentWind(ctx, apparentTailX, apparentTailY, apparentHeadX, apparentHeadY);
 
     // Draw angle arc if dragging
     if (dragState.isDragging) {
       if (dragState.dragType === 'trueWind') {
-        drawAngleArc(ctx, centerX, centerY, trueWindAngle, '#3b82f6');
+        drawAngleArc(ctx, trueWindTailX, trueWindTailY, trueWindAngle, '#3b82f6');
       } else if (dragState.dragType === 'inducedWind') {
         drawAngleArc(ctx, centerX, centerY, boatDirection, '#10b981');
       }
@@ -101,6 +147,7 @@ export default function WindSimulator() {
     apparentWindSpeed,
     apparentWindAngle,
     dragState,
+    boatImageLoaded,
   ]);
 
   // Draw boat
@@ -109,22 +156,46 @@ export default function WindSimulator() {
     ctx.translate(x, y);
     ctx.rotate((angle * Math.PI) / 180);
 
-    // Draw a simple sailboat shape
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.moveTo(0, -20);
-    ctx.lineTo(-8, 20);
-    ctx.lineTo(8, 20);
-    ctx.closePath();
-    ctx.fill();
+    if (boatImageRef.current) {
+      // The SVG has two boats side by side
+      // Left boat occupies roughly the first 1/3 of the image width
+      // SVG viewBox is "0 0 460.62992 744.09444"
+      // Left boat is approximately at x: 0-190, y: 0-744
+      const svgWidth = 460.62992;
+      const svgHeight = 744.09444;
+      const leftBoatWidth = 190; // Crop to just the left boat
 
-    // Draw mast
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, -20);
-    ctx.lineTo(0, -30);
-    ctx.stroke();
+      // Calculate proper aspect ratio
+      const sourceAspectRatio = leftBoatWidth / svgHeight; // ~0.255
+
+      // Scale to fit our desired size while preserving aspect ratio
+      const targetHeight = 80; // Desired height
+      const targetWidth = targetHeight * sourceAspectRatio; // Width based on aspect ratio
+
+      // Draw only the left portion of the SVG
+      ctx.drawImage(
+        boatImageRef.current,
+        0, 0, leftBoatWidth, svgHeight, // Source rectangle (left boat only)
+        -targetWidth / 2, -targetHeight / 2, targetWidth, targetHeight // Destination
+      );
+    } else {
+      // Fallback: Draw a simple sailboat shape if image not loaded
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.lineTo(-8, 20);
+      ctx.lineTo(8, 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw mast
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.lineTo(0, -30);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }
@@ -132,18 +203,18 @@ export default function WindSimulator() {
   // Draw arrow with label
   function drawArrow(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    speed: number,
-    angle: number,
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
     color: string,
     label: string,
-    isDragging: boolean = false
+    speed: number,
+    isDragging: boolean = false,
+    showDragHandle: boolean = false,
+    arrowheadAtStart: boolean = false,
+    dragHandleAtEnd: boolean = false
   ) {
-    const vector = polarToCartesian(speed * scale, angle);
-    const endX = x + vector.x;
-    const endY = y + vector.y;
-
     ctx.save();
 
     // Draw line with glow if dragging
@@ -155,36 +226,55 @@ export default function WindSimulator() {
     ctx.strokeStyle = color;
     ctx.lineWidth = isDragging ? 5 : 3;
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(startX, startY);
     ctx.lineTo(endX, endY);
     ctx.stroke();
 
     // Draw arrowhead
     const arrowLength = 15;
     const arrowWidth = 8;
-    const angleRad = (angle * Math.PI) / 180;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const angle = Math.atan2(dy, dx);
 
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-      endX - arrowLength * Math.sin(angleRad) - arrowWidth * Math.cos(angleRad),
-      endY + arrowLength * Math.cos(angleRad) - arrowWidth * Math.sin(angleRad)
-    );
-    ctx.lineTo(
-      endX - arrowLength * Math.sin(angleRad) + arrowWidth * Math.cos(angleRad),
-      endY + arrowLength * Math.cos(angleRad) + arrowWidth * Math.sin(angleRad)
-    );
+
+    if (arrowheadAtStart) {
+      // Arrowhead at start position (pointing from end to start)
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(
+        startX + arrowLength * Math.cos(angle - Math.PI / 6),
+        startY + arrowLength * Math.sin(angle - Math.PI / 6)
+      );
+      ctx.lineTo(
+        startX + arrowLength * Math.cos(angle + Math.PI / 6),
+        startY + arrowLength * Math.sin(angle + Math.PI / 6)
+      );
+    } else {
+      // Arrowhead at end position (pointing from start to end)
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(
+        endX - arrowLength * Math.cos(angle - Math.PI / 6),
+        endY - arrowLength * Math.sin(angle - Math.PI / 6)
+      );
+      ctx.lineTo(
+        endX - arrowLength * Math.cos(angle + Math.PI / 6),
+        endY - arrowLength * Math.sin(angle + Math.PI / 6)
+      );
+    }
     ctx.closePath();
     ctx.fill();
 
-    // Draw drag handle (circle at end)
-    if (label !== 'Apparent Wind') {
+    // Draw drag handle (circle at start or end position)
+    if (showDragHandle) {
+      const handleX = dragHandleAtEnd ? endX : startX;
+      const handleY = dragHandleAtEnd ? endY : startY;
       ctx.fillStyle = isDragging ? '#ffffff' : color;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(endX, endY, isDragging ? 12 : 8, 0, Math.PI * 2);
+      ctx.arc(handleX, handleY, isDragging ? 12 : 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
@@ -199,9 +289,12 @@ export default function WindSimulator() {
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 4;
 
+    const midX = (startX + endX) / 2;
+    const midY = (startY + endY) / 2;
     const labelOffset = 30;
-    const labelX = endX + labelOffset * Math.sin(angleRad);
-    const labelY = endY - labelOffset * Math.cos(angleRad);
+    const perpAngle = angle + Math.PI / 2;
+    const labelX = midX + labelOffset * Math.cos(perpAngle);
+    const labelY = midY + labelOffset * Math.sin(perpAngle);
 
     ctx.fillText(label, labelX, labelY);
     ctx.font = '14px Inter, sans-serif';
@@ -212,52 +305,69 @@ export default function WindSimulator() {
 
   function drawTrueWind(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    speed: number,
-    angle: number
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number
   ) {
     drawArrow(
       ctx,
-      x,
-      y,
-      speed,
-      angle,
+      startX,
+      startY,
+      endX,
+      endY,
       '#3b82f6',
       'True Wind',
-      dragState.isDragging && dragState.dragType === 'trueWind'
+      trueWindSpeed,
+      dragState.isDragging && dragState.dragType === 'trueWind',
+      true,
+      false // arrowhead at end (head position)
     );
   }
 
   function drawInducedWind(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    speed: number,
-    boatDir: number
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number
   ) {
-    // Induced wind is opposite to boat direction
-    const inducedAngle = normalizeAngle(boatDir + 180);
     drawArrow(
       ctx,
-      x,
-      y,
-      speed,
-      inducedAngle,
+      startX,
+      startY,
+      endX,
+      endY,
       '#10b981',
       'Induced Wind',
-      dragState.isDragging && dragState.dragType === 'inducedWind'
+      boatSpeed,
+      dragState.isDragging && dragState.dragType === 'inducedWind',
+      true,
+      false, // arrowhead at end (at boat front, pointing away)
+      false // drag handle at start (away from boat where user can drag)
     );
   }
 
   function drawApparentWind(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    speed: number,
-    angle: number
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number
   ) {
-    drawArrow(ctx, x, y, speed, angle, '#ef4444', 'Apparent Wind', false);
+    drawArrow(
+      ctx,
+      startX,
+      startY,
+      endX,
+      endY,
+      '#ef4444',
+      'Apparent Wind',
+      apparentWindSpeed,
+      false,
+      false,
+      false // arrowhead at end (head position)
+    );
   }
 
   function drawAngleArc(
@@ -301,12 +411,23 @@ export default function WindSimulator() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Check if clicking on true wind arrow end
-    const trueWindVector = polarToCartesian(trueWindSpeed * scale, trueWindAngle);
-    const trueWindEndX = centerX + trueWindVector.x;
-    const trueWindEndY = centerY + trueWindVector.y;
+    // Calculate current vector positions for drag handles
+    // First calculate boat front position
+    const boatFrontOffset = 40;
+    const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
+    const boatFrontX = centerX + boatFrontVector.x;
+    const boatFrontY = centerY + boatFrontVector.y;
 
-    if (distance(mouseX, mouseY, trueWindEndX, trueWindEndY) < 20) {
+    const inducedVectorDirection = polarToCartesian(boatSpeed * scale, normalizeAngle(boatDirection + 180));
+    const inducedStartX = boatFrontX - inducedVectorDirection.x; // The draggable end (away from boat, opposite direction)
+    const inducedStartY = boatFrontY - inducedVectorDirection.y;
+
+    const trueWindVector = polarToCartesian(trueWindSpeed * scale, trueWindAngle);
+    const trueWindTailX = inducedStartX - trueWindVector.x;
+    const trueWindTailY = inducedStartY - trueWindVector.y;
+
+    // Check if clicking on true wind arrow tail (drag handle)
+    if (distance(mouseX, mouseY, trueWindTailX, trueWindTailY) < 20) {
       setDragState({
         isDragging: true,
         dragType: 'trueWind',
@@ -316,18 +437,15 @@ export default function WindSimulator() {
       return;
     }
 
-    // Check if clicking on induced wind arrow end
-    const inducedAngle = normalizeAngle(boatDirection + 180);
-    const inducedVector = polarToCartesian(boatSpeed * scale, inducedAngle);
-    const inducedEndX = centerX + inducedVector.x;
-    const inducedEndY = centerY + inducedVector.y;
-
-    if (distance(mouseX, mouseY, inducedEndX, inducedEndY) < 20) {
+    // Check if clicking on induced wind arrow start (drag handle - the end away from boat)
+    if (distance(mouseX, mouseY, inducedStartX, inducedStartY) < 20) {
       setDragState({
         isDragging: true,
         dragType: 'inducedWind',
         startX: mouseX,
         startY: mouseY,
+        startBoatDirection: boatDirection,
+        startBoatSpeed: boatSpeed,
       });
       return;
     }
@@ -343,19 +461,54 @@ export default function WindSimulator() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const dx = mouseX - centerX;
-    const dy = mouseY - centerY;
-
-    const { speed, angle } = cartesianToPolar(dx, dy);
-    const newSpeed = Math.max(0.1, Math.min(30, speed / scale));
+    // Only update if mouse has moved at least 2 pixels from start
+    const distFromStart = distance(mouseX, mouseY, dragState.startX, dragState.startY);
+    if (distFromStart < 2) return;
 
     if (dragState.dragType === 'trueWind') {
-      setTrueWindSpeed(newSpeed);
-      setTrueWindAngle(angle);
+      // When dragging true wind tail, calculate the vector
+      // True wind head connects to induced wind START (the end away from boat)
+      const boatFrontOffset = 40;
+      const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
+      const boatFrontX = centerX + boatFrontVector.x;
+      const boatFrontY = centerY + boatFrontVector.y;
+
+      const inducedVectorDirection = polarToCartesian(boatSpeed * scale, normalizeAngle(boatDirection + 180));
+      const inducedStartX = boatFrontX - inducedVectorDirection.x;
+      const inducedStartY = boatFrontY - inducedVectorDirection.y;
+
+      // True wind vector is from mouse (tail) to induced wind start
+      const trueWindX = inducedStartX - mouseX;
+      const trueWindY = inducedStartY - mouseY;
+      const { speed: newTrueSpeed, angle: newTrueAngle } = cartesianToPolar(
+        trueWindX,
+        trueWindY
+      );
+      const clampedSpeed = Math.max(0.1, Math.min(30, newTrueSpeed / scale));
+
+      setTrueWindSpeed(clampedSpeed);
+      setTrueWindAngle(newTrueAngle);
     } else if (dragState.dragType === 'inducedWind') {
+      // When dragging induced wind start (the draggable end away from boat)
+      // Calculate boat front position (where the arrowhead is)
+      const boatFrontOffset = 40;
+      const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
+      const boatFrontX = centerX + boatFrontVector.x;
+      const boatFrontY = centerY + boatFrontVector.y;
+
+      // Vector from mouse (start/drag point) to boat front (end/arrowhead)
+      const dx = boatFrontX - mouseX;
+      const dy = boatFrontY - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const newSpeed = Math.max(0.1, Math.min(30, dist / scale));
+
+      // Calculate the angle the arrow points (from start to end)
+      const { angle: arrowAngle } = cartesianToPolar(dx, dy);
+
       setBoatSpeed(newSpeed);
-      // Boat direction is opposite to induced wind
-      setBoatDirection(normalizeAngle(angle + 180));
+      // The arrow points in direction arrowAngle (opposite to boat movement)
+      // So boat moves in the opposite direction
+      setBoatDirection(normalizeAngle(arrowAngle + 180));
     }
   }
 
