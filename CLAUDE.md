@@ -23,16 +23,19 @@ The Apparent Wind Simulator provides a real-time, interactive visualization of w
 The app uses these standard sailing physics formulas:
 
 ### Apparent Wind Speed (AWS)
+
 ```
 AWS = √((W cos α + V)² + (W sin α)²)
 ```
 
 ### Apparent Wind Angle (AWA)
+
 ```
 AWA = atan2(W sin α, W cos α + V)
 ```
 
 ### Symbols
+
 - **W**: True Wind Speed (TWS) in knots
 - **V**: Boat Speed (SOG) in knots
 - **α**: The angle between the boat's course and the true wind, in radians (TWA)
@@ -41,6 +44,7 @@ AWA = atan2(W sin α, W cos α + V)
 ## 🎨 Design Elements
 
 ### Color Scheme
+
 - **Blue (#3b82f6)**: True Wind vector
 - **Green (#10b981)**: Induced Wind vector (opposite to boat direction)
 - **Red (#ef4444)**: Apparent Wind vector (calculated)
@@ -48,6 +52,7 @@ AWA = atan2(W sin α, W cos α + V)
 - **Ocean gradient**: Background with blues (#0c4a6e → #0ea5e9 → #38bdf8)
 
 ### Visual Components
+
 - **Arrows**: Wind vectors with arrowheads and drag handles
 - **Boat Icon**: Simple sailboat shape that indicates boat direction
 - **Data Panels**: Glassmorphism cards displaying wind values
@@ -88,17 +93,20 @@ apparent-wind-simulator/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 
 ### Installation
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -145,6 +153,7 @@ npm run preview
 ### WindSimulator Component (`src/components/WindSimulator.tsx`)
 
 Main interactive component with:
+
 - Canvas rendering with requestAnimationFrame updates
 - Mouse event handlers for drag interactions
 - State management for wind vectors
@@ -152,6 +161,7 @@ Main interactive component with:
 - Real-time calculation integration
 
 Key functions:
+
 - `drawBoat()`: Renders sailboat icon
 - `drawArrow()`: Renders wind vector arrows with labels
 - `drawAngleArc()`: Shows angle indicator during drag
@@ -160,6 +170,7 @@ Key functions:
 ### Wind Calculations (`src/utils/windCalculations.ts`)
 
 Utility functions including:
+
 - `calculateApparentWind()`: Core physics calculation
 - `polarToCartesian()`: Convert speed/angle to x/y coordinates
 - `cartesianToPolar()`: Convert x/y coordinates to speed/angle
@@ -169,6 +180,7 @@ Utility functions including:
 ## 🧪 Testing
 
 The app has been tested with Playwright MCP to ensure:
+
 - ✅ Canvas renders correctly
 - ✅ Initial wind values display properly (10.0 knots true wind, 10.0 knots boat speed, 14.1 knots apparent wind)
 - ✅ Mathematical calculations are accurate
@@ -179,7 +191,9 @@ The app has been tested with Playwright MCP to ensure:
 ## 🎯 Key Features Explained
 
 ### Drag Interaction
+
 The drag system works by:
+
 1. Detecting mouse down on arrow endpoint circles
 2. Tracking mouse position during movement
 3. Converting screen coordinates to polar (speed, angle)
@@ -187,11 +201,13 @@ The drag system works by:
 5. Updating state triggers re-render
 
 ### Coordinate Systems
+
 - **Canvas coordinates**: Origin at top-left
 - **Wind angles**: 0° = North (up), 90° = East (right), 180° = South (down), 270° = West (left)
 - **Induced wind**: Points opposite to boat direction (boat going south = induced wind north)
 
 ### Performance Optimizations
+
 - Canvas cleared and redrawn only when state changes
 - Debounced resize handler
 - Efficient event listeners with cleanup
@@ -200,6 +216,7 @@ The drag system works by:
 ## 🌟 Future Enhancements
 
 Potential improvements:
+
 - [ ] Add touch support for mobile drag
 - [ ] Preset scenarios (upwind, downwind, reaching)
 - [ ] Export/share configurations
@@ -213,16 +230,19 @@ Potential improvements:
 ## 📝 Development Notes
 
 ### Canvas Rendering
+
 - Canvas size updates on window resize
 - Scaling factor (15px per knot) provides good visualization
 - Arrow endpoints have hit detection radius of 20px for easier dragging
 
 ### State Management
+
 - Simple useState hooks for wind values
 - Drag state tracks current interaction
 - Apparent wind computed on every render (could be memoized)
 
 ### Styling Approach
+
 - Tailwind utility classes for consistent design
 - Custom glassmorphism utilities in index.css
 - Ocean-themed color palette from tailwind.config.js

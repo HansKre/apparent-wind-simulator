@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  calculateApparentWind,
   cartesianToPolar,
   degToRad,
   distance,
@@ -10,16 +9,16 @@ import {
   polarToCartesian,
 } from "../utils/windCalculations";
 
-interface DragState {
+type DragState = {
   isDragging: boolean;
   dragType: "trueWind" | "inducedWind" | null;
   startX: number;
   startY: number;
   startBoatDirection?: number;
   startBoatSpeed?: number;
-}
+};
 
-export default function WindSimulator() {
+export function WindSimulator() {
   // Wind state
   const [trueWindSpeed, setTrueWindSpeed] = useState(10);
   const [trueWindAngle, setTrueWindAngle] = useState(270); // 270° = West (horizontal left)
@@ -73,7 +72,10 @@ export default function WindSimulator() {
   // Apparent wind = True wind + Induced wind (boat speed in opposite direction)
   // First, get the vectors in Cartesian coordinates
   const trueWindVector = polarToCartesian(trueWindSpeed, trueWindAngle);
-  const inducedWindVector = polarToCartesian(boatSpeed, normalizeAngle(boatDirection + 180));
+  const inducedWindVector = polarToCartesian(
+    boatSpeed,
+    normalizeAngle(boatDirection + 180)
+  );
 
   // Add the vectors
   const apparentWindX = trueWindVector.x + inducedWindVector.x;
@@ -105,7 +107,9 @@ export default function WindSimulator() {
 
     updateSize();
     window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
+    return () => {
+      window.removeEventListener("resize", updateSize);
+    };
   }, []);
 
   // Drawing function
@@ -216,6 +220,7 @@ export default function WindSimulator() {
         drawAngleArc(ctx, centerX, centerY, boatDirection, "#10b981");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canvasSize,
     trueWindSpeed,
@@ -227,6 +232,9 @@ export default function WindSimulator() {
     dragState,
     boatImageLoaded,
     zoomLevel,
+    centerX,
+    centerY,
+    scale,
   ]);
 
   // Draw boat
@@ -304,7 +312,10 @@ export default function WindSimulator() {
     const maxDistance = Math.max(
       canvasSize.width,
       canvasSize.height,
-      Math.sqrt(canvasSize.width * canvasSize.width + canvasSize.height * canvasSize.height)
+      Math.sqrt(
+        canvasSize.width * canvasSize.width +
+          canvasSize.height * canvasSize.height
+      )
     );
     const noSailZoneRadius = maxDistance; // Extend to canvas edge
     const rotatedAngle = normalizeAngle(boatDirection); // Aligned with boat direction
@@ -1034,7 +1045,9 @@ export default function WindSimulator() {
                 max="25"
                 step="0.5"
                 value={gustSpeed}
-                onChange={(e) => setGustSpeed(parseFloat(e.target.value))}
+                onChange={(e) => {
+                  setGustSpeed(parseFloat(e.target.value));
+                }}
                 disabled={isSimulating}
                 className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{

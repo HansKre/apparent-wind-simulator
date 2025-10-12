@@ -26,16 +26,19 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 The simulator implements standard sailing wind triangle formulas:
 
 **Apparent Wind Speed (AWS)**
+
 ```
 AWS = √((W cos α + V)² + (W sin α)²)
 ```
 
 **Apparent Wind Angle (AWA)**
+
 ```
 AWA = atan2(W sin α, W cos α + V)
 ```
 
 Where:
+
 - **W** = True Wind Speed (knots)
 - **V** = Boat Speed (knots)
 - **α** = Angle between boat course and true wind
@@ -58,6 +61,7 @@ Watch the data panels update in real-time as you drag!
 ## 📚 Documentation
 
 See [CLAUDE.md](CLAUDE.md) for detailed documentation including:
+
 - Architecture overview
 - Component details
 - Mathematical formulas explained
@@ -67,6 +71,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed documentation including:
 ## 🧪 Testing
 
 Tested with Playwright to ensure:
+
 - ✅ Accurate calculations
 - ✅ Smooth interactions
 - ✅ Responsive design

@@ -11,19 +11,19 @@
  * - α: The angle between the boat's course and the true wind, in radians (TWA)
  */
 
-export interface Vector2D {
+export type Vector2D = {
   x: number;
   y: number;
-}
+};
 
-export interface WindData {
-  trueWindSpeed: number;      // W in knots
-  trueWindAngle: number;       // α in degrees
-  boatSpeed: number;           // V in knots
-  boatDirection: number;       // Boat heading in degrees
-  apparentWindSpeed: number;   // AWS in knots
-  apparentWindAngle: number;   // AWA in degrees
-}
+export type WindData = {
+  trueWindSpeed: number; // W in knots
+  trueWindAngle: number; // α in degrees
+  boatSpeed: number; // V in knots
+  boatDirection: number; // Boat heading in degrees
+  apparentWindSpeed: number; // AWS in knots
+  apparentWindAngle: number; // AWA in degrees
+};
 
 /**
  * Convert degrees to radians
@@ -63,7 +63,7 @@ export function calculateApparentWind(
   // AWS = √((W cos α + V)² + (W sin α)²)
   const apparentWindSpeed = Math.sqrt(
     Math.pow(trueWindSpeed * Math.cos(alpha) + boatSpeed, 2) +
-    Math.pow(trueWindSpeed * Math.sin(alpha), 2)
+      Math.pow(trueWindSpeed * Math.sin(alpha), 2)
   );
 
   // Calculate apparent wind angle using atan2:
@@ -95,7 +95,10 @@ export function polarToCartesian(speed: number, angleDeg: number): Vector2D {
  * Convert Cartesian coordinates to polar (speed, angle)
  * Returns angle in degrees, measured clockwise from north (0°)
  */
-export function cartesianToPolar(x: number, y: number): { speed: number; angle: number } {
+export function cartesianToPolar(
+  x: number,
+  y: number
+): { speed: number; angle: number } {
   const speed = Math.sqrt(x * x + y * y);
   const angleRad = Math.atan2(x, -y);
   const angle = normalizeAngle(radToDeg(angleRad));
@@ -106,7 +109,12 @@ export function cartesianToPolar(x: number, y: number): { speed: number; angle: 
 /**
  * Calculate distance between two points
  */
-export function distance(x1: number, y1: number, x2: number, y2: number): number {
+export function distance(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): number {
   return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
 }
 
@@ -129,7 +137,7 @@ export function formatAngle(angle: number): string {
  */
 export function getWindDirectionAbbr(angle: number): string {
   const normalized = normalizeAngle(angle);
-  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   const index = Math.round(normalized / 45) % 8;
   return directions[index];
 }

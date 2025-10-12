@@ -1,6 +1,6 @@
-import WindSimulator from './components/WindSimulator';
+import { WindSimulator } from "./components/WindSimulator";
 
-function App() {
+export function App() {
   return (
     <div className="min-h-screen w-full flex flex-col">
       {/* Header */}
@@ -33,5 +33,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
