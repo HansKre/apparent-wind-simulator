@@ -29,10 +29,6 @@ export function WindSimulator() {
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [baseWindSpeed, setBaseWindSpeed] = useState(10);
-  const [baseWindAngle, setBaseWindAngle] = useState(270);
-  const [baseBoatSpeed, setBaseBoatSpeed] = useState(10);
-  const [baseBoatDirection, setBaseBoatDirection] = useState(0);
   const animationRef = useRef<number | null>(null);
 
   // Canvas refs
@@ -786,11 +782,6 @@ export function WindSimulator() {
     const capturedBoatSpeed = boatSpeed;
     const capturedBoatDirection = boatDirection;
 
-    // Store base values (all current state before simulation)
-    setBaseWindSpeed(capturedWindSpeed);
-    setBaseWindAngle(capturedWindAngle);
-    setBaseBoatSpeed(capturedBoatSpeed);
-    setBaseBoatDirection(capturedBoatDirection);
     setIsSimulating(true);
 
     const startTime = Date.now();
@@ -892,7 +883,9 @@ export function WindSimulator() {
 
       // Apply multipliers to base values
       setTrueWindSpeed(capturedWindSpeed + gustSpeed * windMultiplier);
-      setBoatSpeed(capturedBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier);
+      setBoatSpeed(
+        capturedBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier
+      );
 
       // Ensure boat direction and wind angle remain constant during simulation
       setBoatDirection(capturedBoatDirection);
@@ -915,13 +908,12 @@ export function WindSimulator() {
 
   return (
     <div
-      className="w-full h-full flex flex-col lg:flex-row gap-4 p-4"
+      className="w-full h-full flex flex-col lg:flex-row gap-4 p-4 overflow-hidden"
       data-testid="wind-simulator"
     >
       <div
         ref={containerRef}
         className="flex-1 glass-dark rounded-2xl shadow-2xl overflow-hidden relative"
-        style={{ minHeight: "500px" }}
         data-testid="canvas-container"
       >
         <canvas
