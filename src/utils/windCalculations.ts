@@ -123,3 +123,13 @@ export function formatSpeed(speed: number): string {
 export function formatAngle(angle: number): string {
   return Math.round(normalizeAngle(angle)).toString();
 }
+
+/**
+ * Get wind direction abbreviation from angle (N, NE, E, SE, S, SW, W, NW)
+ */
+export function getWindDirectionAbbr(angle: number): string {
+  const normalized = normalizeAngle(angle);
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const index = Math.round(normalized / 45) % 8;
+  return directions[index];
+}
