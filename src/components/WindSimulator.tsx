@@ -4,10 +4,11 @@ import {
   degToRad,
   distance,
   formatAngle,
-  formatSpeed,
   normalizeAngle,
   polarToCartesian,
 } from "../utils/windCalculations";
+import { DataPanel } from "./DataPanel";
+import { ZoomControls } from "./ZoomControls";
 
 type DragState = {
   isDragging: boolean;
@@ -352,7 +353,6 @@ export function WindSimulator() {
     ctx.restore();
   }
 
-  // Draw arrow with label
   function drawArrow(
     ctx: CanvasRenderingContext2D,
     startX: number,
@@ -360,13 +360,12 @@ export function WindSimulator() {
     endX: number,
     endY: number,
     color: string,
-    _label: string,
-    speed: number,
-    abbreviation: string,
     isDragging: boolean = false,
     showDragHandle: boolean = false,
     arrowheadAtStart: boolean = false,
-    dragHandleAtEnd: boolean = false
+    dragHandleAtEnd: boolean = false,
+    speed?: number,
+    abbreviation?: string
   ) {
     ctx.save();
 
@@ -433,24 +432,26 @@ export function WindSimulator() {
 
     ctx.restore();
 
-    // Draw speed label with abbreviation
-    ctx.save();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "14px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 4;
+    // Draw speed label with abbreviation if provided
+    if (speed !== undefined && abbreviation) {
+      ctx.save();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "14px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 4;
 
-    const midX = (startX + endX) / 2;
-    const midY = (startY + endY) / 2;
-    const labelOffset = 25;
-    const perpAngle = angle + Math.PI / 2;
-    const labelX = midX + labelOffset * Math.cos(perpAngle);
-    const labelY = midY + labelOffset * Math.sin(perpAngle);
+      const midX = (startX + endX) / 2;
+      const midY = (startY + endY) / 2;
+      const labelOffset = 25;
+      const perpAngle = angle + Math.PI / 2;
+      const labelX = midX + labelOffset * Math.cos(perpAngle);
+      const labelY = midY + labelOffset * Math.sin(perpAngle);
 
-    ctx.fillText(`${formatSpeed(speed)} kt (${abbreviation})`, labelX, labelY);
+      ctx.fillText(`${speed.toFixed(1)} kt (${abbreviation})`, labelX, labelY);
 
-    ctx.restore();
+      ctx.restore();
+    }
   }
 
   function drawTrueWind(
@@ -467,12 +468,12 @@ export function WindSimulator() {
       endX,
       endY,
       "#3b82f6",
-      "True Wind",
-      trueWindSpeed,
-      "TWS",
       dragState.isDragging && dragState.dragType === "trueWind",
       true,
-      false // arrowhead at end (head position)
+      false,
+      false,
+      trueWindSpeed,
+      "TWS"
     );
   }
 
@@ -490,13 +491,12 @@ export function WindSimulator() {
       endX,
       endY,
       "#10b981",
-      "Induced Wind",
-      boatSpeed,
-      "IWS",
       dragState.isDragging && dragState.dragType === "inducedWind",
       true,
-      false, // arrowhead at end (at boat front, pointing away)
-      false // drag handle at start (away from boat where user can drag)
+      false,
+      false,
+      boatSpeed,
+      "IWS"
     );
   }
 
@@ -514,12 +514,12 @@ export function WindSimulator() {
       endX,
       endY,
       "#ef4444",
-      "Apparent Wind",
+      false,
+      false,
+      false,
+      false,
       apparentWindSpeed,
-      "AWS",
-      false,
-      false,
-      false // arrowhead at end (head position)
+      "AWS"
     );
   }
 
@@ -901,12 +901,15 @@ export function WindSimulator() {
   }, []);
 
   return (
-    <div className="w-full h-full flex flex-col lg:flex-row gap-4 p-4">
-      {/* Canvas Container */}
+    <div
+      className="w-full h-full flex flex-col lg:flex-row gap-4 p-4"
+      data-testid="wind-simulator"
+    >
       <div
         ref={containerRef}
         className="flex-1 glass-dark rounded-2xl shadow-2xl overflow-hidden relative"
         style={{ minHeight: "500px" }}
+        data-testid="canvas-container"
       >
         <canvas
           ref={canvasRef}
@@ -923,155 +926,26 @@ export function WindSimulator() {
           }
         />
 
-        {/* Zoom Controls */}
-        <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-          <button
-            onClick={handleZoomIn}
-            disabled={zoomLevel >= 3}
-            className="w-10 h-10 glass rounded-lg flex items-center justify-center text-white font-bold text-xl hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
-            title="Zoom In"
-            data-testid="zoom-in-button"
-          >
-            +
-          </button>
-          <button
-            onClick={handleZoomReset}
-            className="w-10 h-10 glass rounded-lg flex items-center justify-center text-white font-bold text-xs hover:bg-white/20 transition-all shadow-lg"
-            title={`Reset Zoom (${Math.round(zoomLevel * 100)}%)`}
-            data-testid="zoom-reset-button"
-          >
-            {Math.round(zoomLevel * 100)}%
-          </button>
-          <button
-            onClick={handleZoomOut}
-            disabled={zoomLevel <= 0.5}
-            className="w-10 h-10 glass rounded-lg flex items-center justify-center text-white font-bold text-xl hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
-            title="Zoom Out"
-            data-testid="zoom-out-button"
-          >
-            −
-          </button>
-        </div>
+        <ZoomControls
+          zoomLevel={zoomLevel}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onZoomReset={handleZoomReset}
+        />
       </div>
 
-      {/* Data Panel */}
-      <div className="lg:w-80 flex flex-col gap-4">
-        {/* True Wind */}
-        <div className="glass rounded-2xl p-6 shadow-xl flex-1">
-          <h3 className="text-blue-400 font-bold text-xl mb-4 flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-            True Wind (TWS)
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Speed:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatSpeed(trueWindSpeed)}{" "}
-                <span className="text-lg">knots</span>
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Angle:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatAngle(trueWindAngle)}°
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Boat / Induced Wind */}
-        <div className="glass rounded-2xl p-6 shadow-xl flex-1">
-          <h3 className="text-green-400 font-bold text-xl mb-4 flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            Induced Wind (IWS)
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Speed:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatSpeed(boatSpeed)} <span className="text-lg">knots</span>
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Direction:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatAngle(boatDirection)}°
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Apparent Wind */}
-        <div className="glass rounded-2xl p-6 shadow-xl flex-1 border-2 border-red-400/50">
-          <h3 className="text-red-400 font-bold text-xl mb-4 flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
-            Apparent Wind (AWS)
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Speed:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatSpeed(apparentWindSpeed)}{" "}
-                <span className="text-lg">knots</span>
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/80">Angle:</span>
-              <span className="text-white font-bold text-2xl">
-                {formatAngle(apparentWindAngle)}°
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Gust Simulation */}
-        <div className="glass rounded-2xl p-6 shadow-xl">
-          <h3 className="text-amber-400 font-bold text-xl mb-4 flex items-center gap-2">
-            <div className="w-4 h-4 bg-amber-500 rounded-full"></div>
-            Gust Simulation
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-white/80">Gust Speed:</span>
-                <span className="text-white font-bold text-lg">
-                  {formatSpeed(gustSpeed)}{" "}
-                  <span className="text-sm">knots</span>
-                </span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="25"
-                step="0.5"
-                value={gustSpeed}
-                onChange={(e) => {
-                  setGustSpeed(parseFloat(e.target.value));
-                }}
-                disabled={isSimulating}
-                className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  background: isSimulating
-                    ? "rgba(255, 255, 255, 0.2)"
-                    : `linear-gradient(to right, #fbbf24 0%, #fbbf24 ${
-                        ((gustSpeed - 5) / 20) * 100
-                      }%, rgba(255, 255, 255, 0.2) ${
-                        ((gustSpeed - 5) / 20) * 100
-                      }%, rgba(255, 255, 255, 0.2) 100%)`,
-                }}
-              />
-            </div>
-            <button
-              onClick={simulateGust}
-              disabled={isSimulating}
-              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors shadow-lg hover:shadow-xl"
-              data-testid="simulate-gust-button"
-            >
-              {isSimulating ? "Simulating..." : "Simulate Gust"}
-            </button>
-          </div>
-        </div>
-      </div>
+      <DataPanel
+        trueWindSpeed={trueWindSpeed}
+        trueWindAngle={trueWindAngle}
+        boatSpeed={boatSpeed}
+        boatDirection={boatDirection}
+        apparentWindSpeed={apparentWindSpeed}
+        apparentWindAngle={apparentWindAngle}
+        gustSpeed={gustSpeed}
+        isSimulating={isSimulating}
+        onGustSpeedChange={setGustSpeed}
+        onSimulateGust={simulateGust}
+      />
     </div>
   );
 }
