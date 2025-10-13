@@ -64,6 +64,7 @@ export function useLullSimulation({
     const totalDuration = phase4StartTime + phase4Duration;
 
     const inducedSpeedDecrease = lullSpeed * 0.4;
+    const headingChangeDelay = 800; // Delay before heading changes start
 
     function easeOutExpo(x: number): number {
       return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
@@ -141,63 +142,67 @@ export function useLullSimulation({
 
       // Calculate new boat direction if auto head-up is enabled
       if (autoHeadUp) {
-        // To maintain 45° between apparent wind and induced wind (boat direction)
-        // We need to adjust the boat direction so that:
-        // angle(apparent wind) - angle(induced wind) = 45°
-        // Since induced wind is opposite to boat direction:
-        // induced wind angle = boat direction + 180°
+        // Calculate the target boat direction (45° angle from apparent wind)
+        let targetBoatDir = capturedBoatDirection;
 
-        // Start from the previous boat direction for smoother transitions
-        let currentBoatDir = previousBoatDirection;
-        let bestBoatDir = currentBoatDir;
-        let bestAngleDiff = 999;
+        if (elapsed >= headingChangeDelay) {
+          // Find the target boat direction that gives us 45° angle
+          let currentBoatDir = previousBoatDirection;
 
-        // Iterate to find the boat direction that gives us 45° angle (or higher)
-        for (let i = 0; i < 20; i++) {
-          const trueWindVector = polarToCartesian(
-            currentTrueWindSpeed,
-            capturedWindAngle
-          );
-          const inducedWindVector = polarToCartesian(
-            currentBoatSpeed,
-            normalizeAngle(currentBoatDir + 180)
-          );
+          for (let i = 0; i < 20; i++) {
+            const trueWindVector = polarToCartesian(
+              currentTrueWindSpeed,
+              capturedWindAngle
+            );
+            const inducedWindVector = polarToCartesian(
+              currentBoatSpeed,
+              normalizeAngle(currentBoatDir + 180)
+            );
 
-          const apparentWindX = trueWindVector.x + inducedWindVector.x;
-          const apparentWindY = trueWindVector.y + inducedWindVector.y;
-          const apparentPolar = cartesianToPolar(apparentWindX, apparentWindY);
-          const apparentWindAngle = apparentPolar.angle;
+            const apparentWindX = trueWindVector.x + inducedWindVector.x;
+            const apparentWindY = trueWindVector.y + inducedWindVector.y;
+            const apparentPolar = cartesianToPolar(apparentWindX, apparentWindY);
+            const apparentWindAngle = apparentPolar.angle;
 
-          // Calculate current angle between apparent wind and induced wind
-          const inducedWindAngle = normalizeAngle(currentBoatDir + 180);
-          let angleDiff = apparentWindAngle - inducedWindAngle;
+            // Calculate current angle between apparent wind and induced wind
+            const inducedWindAngle = normalizeAngle(currentBoatDir + 180);
+            let angleDiff = apparentWindAngle - inducedWindAngle;
 
-          // Normalize angle difference to -180 to 180 range
-          if (angleDiff > 180) angleDiff -= 360;
-          if (angleDiff < -180) angleDiff += 360;
+            // Normalize angle difference to -180 to 180 range
+            if (angleDiff > 180) angleDiff -= 360;
+            if (angleDiff < -180) angleDiff += 360;
 
-          // Keep track of the best solution (closest to 45° but prefer staying at or above 45°)
-          const distanceFrom45 = Math.abs(angleDiff - 45);
-          if (distanceFrom45 < Math.abs(bestAngleDiff - 45)) {
-            // Prefer solutions that are at or above 45°
-            if (angleDiff >= 44 || distanceFrom45 < Math.abs(bestAngleDiff - 45) * 0.8) {
-              bestBoatDir = currentBoatDir;
-              bestAngleDiff = angleDiff;
-            }
+            // Target is 45° - adjust boat direction to reach it
+            const error = angleDiff - 45;
+            if (Math.abs(error) < 0.5) break; // Close enough
+
+            currentBoatDir = normalizeAngle(currentBoatDir + error * 0.4);
           }
 
-          // Target is 45° - adjust boat direction to reach it
-          // If angle is below 45°, turn away from wind (decrease boat direction)
-          // If angle is above 45°, turn toward wind (increase boat direction)
-          const error = angleDiff - 45;
-          if (Math.abs(error) < 0.5) break; // Close enough
-
-          currentBoatDir = normalizeAngle(currentBoatDir + error * 0.4);
+          targetBoatDir = currentBoatDir;
         }
 
-        // Use the best solution found
-        previousBoatDirection = bestBoatDir;
-        setBoatDirection(bestBoatDir);
+        // Smoothly interpolate from previous to target direction
+        let rotationProgress = 0;
+        if (elapsed >= headingChangeDelay) {
+          // Calculate how far into the animation we are after the delay
+          const timeSinceDelay = elapsed - headingChangeDelay;
+          const rotationDuration = totalDuration - headingChangeDelay;
+          rotationProgress = Math.min(1, timeSinceDelay / rotationDuration);
+        }
+
+        // Interpolate between captured and target direction
+        let angleDelta = targetBoatDir - capturedBoatDirection;
+        // Normalize to shortest path (-180 to 180)
+        if (angleDelta > 180) angleDelta -= 360;
+        if (angleDelta < -180) angleDelta += 360;
+
+        const currentDirection = normalizeAngle(
+          capturedBoatDirection + angleDelta * rotationProgress
+        );
+
+        previousBoatDirection = currentDirection;
+        setBoatDirection(currentDirection);
       } else {
         setBoatDirection(capturedBoatDirection);
         previousBoatDirection = capturedBoatDirection;

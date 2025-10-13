@@ -14,7 +14,7 @@ export function LullSpeedSlider({ value, onChange, disabled }: Props) {
       <div className="flex justify-between items-center mb-2">
         <span className="text-white/80">Lull Speed:</span>
         <span className="text-white font-bold text-lg">
-          {formatSpeed(value)} <span className="text-sm">knots</span>
+          -{formatSpeed(value)} <span className="text-sm">knots</span>
         </span>
       </div>
       <input

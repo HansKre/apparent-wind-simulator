@@ -45,7 +45,7 @@ export function GustSimulationPanel({
             data-testid="auto-head-up-checkbox"
           />
           <span className="text-white font-medium select-none">
-            Auto head-up (45°)
+            Auto head-up/bear-away (45°)
           </span>
         </label>
         <button
