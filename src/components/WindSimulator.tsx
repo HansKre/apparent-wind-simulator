@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { COLORS } from "../constants/windSimulator";
+import { useDragInteraction } from "../hooks/useDragInteraction";
+import { useGustSimulation } from "../hooks/useGustSimulation";
+import {
+  drawAngleArc,
+  drawAngleBetweenArrows,
+  drawArrow,
+  drawBoat,
+  drawGoNoGoZone,
+} from "../utils/canvasDrawing";
 import {
   cartesianToPolar,
   normalizeAngle,
   polarToCartesian,
 } from "../utils/windCalculations";
-import {
-  drawBoat,
-  drawGoNoGoZone,
-  drawArrow,
-  drawAngleArc,
-  drawAngleBetweenArrows,
-} from "../utils/canvasDrawing";
-import { COLORS } from "../constants/windSimulator";
-import { useDragInteraction } from "../hooks/useDragInteraction";
-import { useGustSimulation } from "../hooks/useGustSimulation";
 import { DataPanel } from "./DataPanel";
 import { ZoomControls } from "./ZoomControls";
 
@@ -45,22 +45,28 @@ export function WindSimulator() {
   const centerY = canvasSize.height / 2;
 
   // Drag interaction hook
-  const { dragState, isHoveringHandle, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave } =
-    useDragInteraction({
-      canvasRef,
-      centerX,
-      centerY,
-      scale,
-      zoomLevel,
-      boatDirection,
-      boatSpeed,
-      trueWindSpeed,
-      trueWindAngle,
-      setTrueWindSpeed,
-      setTrueWindAngle,
-      setBoatSpeed,
-      setBoatDirection,
-    });
+  const {
+    dragState,
+    isHoveringHandle,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleMouseLeave,
+  } = useDragInteraction({
+    canvasRef,
+    centerX,
+    centerY,
+    scale,
+    zoomLevel,
+    boatDirection,
+    boatSpeed,
+    trueWindSpeed,
+    trueWindAngle,
+    setTrueWindSpeed,
+    setTrueWindAngle,
+    setBoatSpeed,
+    setBoatDirection,
+  });
 
   // Gust simulation hook
   const { isSimulating, simulateGust } = useGustSimulation({
@@ -172,7 +178,14 @@ export function WindSimulator() {
     const apparentTailY = trueWindTailY;
 
     // Draw vectors (from start to end, with arrowhead at end)
-    drawBoat(ctx, centerX, centerY, boatDirection, zoomLevel, boatImageRef.current);
+    drawBoat(
+      ctx,
+      centerX,
+      centerY,
+      boatDirection,
+      zoomLevel,
+      boatImageRef.current
+    );
 
     // Draw go-no-go zone BEFORE other arrows so they appear on top
     drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
@@ -254,7 +267,6 @@ export function WindSimulator() {
         drawAngleArc(ctx, centerX, centerY, boatDirection, COLORS.inducedWind);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canvasSize,
     trueWindSpeed,
