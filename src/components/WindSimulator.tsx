@@ -13,6 +13,7 @@ import {
 } from "../utils/canvasDrawing";
 import { COLORS } from "../constants/windSimulator";
 import { useDragInteraction } from "../hooks/useDragInteraction";
+import { useGustSimulation } from "../hooks/useGustSimulation";
 import { DataPanel } from "./DataPanel";
 import { ZoomControls } from "./ZoomControls";
 
@@ -25,8 +26,6 @@ export function WindSimulator() {
 
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const animationRef = useRef<number | null>(null);
 
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,6 +61,19 @@ export function WindSimulator() {
       setBoatSpeed,
       setBoatDirection,
     });
+
+  // Gust simulation hook
+  const { isSimulating, simulateGust } = useGustSimulation({
+    gustSpeed,
+    trueWindSpeed,
+    trueWindAngle,
+    boatSpeed,
+    boatDirection,
+    setTrueWindSpeed,
+    setTrueWindAngle,
+    setBoatSpeed,
+    setBoatDirection,
+  });
 
   // Load boat SVG
   useEffect(() => {
@@ -271,141 +283,6 @@ export function WindSimulator() {
   function handleZoomReset() {
     setZoomLevel(1);
   }
-
-  // Gust simulation function
-  function simulateGust() {
-    if (isSimulating) return;
-
-    // Capture current values in local variables BEFORE animation starts
-    // This ensures we use the actual current values, not stale state
-    const capturedWindSpeed = trueWindSpeed;
-    const capturedWindAngle = trueWindAngle;
-    const capturedBoatSpeed = boatSpeed;
-    const capturedBoatDirection = boatDirection;
-
-    setIsSimulating(true);
-
-    const startTime = Date.now();
-    const phase1Duration = 2000; // 2 seconds - wind increases rapidly
-    const phase2Duration = 4000; // 4 seconds - boat speed increases (starts at 0.5s)
-    const phase3Duration = 2500; // 2.5 seconds - wind decreases
-    const phase4Duration = 4000; // 4 seconds - boat speed decreases
-
-    // Boat speed starts picking up very early (25% into wind increase)
-    const phase2StartTime = phase1Duration * 0.25; // 0.5s
-    // Phase 3 starts when Phase 2 ends
-    const phase3StartTime = phase2StartTime + phase2Duration; // 4.5s
-    // Phase 4 starts early in Phase 3 (20% into wind decrease)
-    const phase4StartTime = phase3StartTime + phase3Duration * 0.2; // 5s
-    // Total duration is when Phase 4 ends
-    const totalDuration = phase4StartTime + phase4Duration; // 9s
-
-    // Calculate induced speed increase based on gust speed
-    // Relationship: For every 1 knot of gust, boat speed increases by ~0.4 knots
-    // This represents realistic acceleration from increased wind power
-    const inducedSpeedIncrease = gustSpeed * 0.4;
-
-    // Use captured values in the animation function
-
-    // Aggressive easing function for gust (hits hard and fast)
-    function easeOutExpo(x: number): number {
-      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    }
-
-    // Easing function for wind decrease (drops off quickly)
-    function easeInExpo(x: number): number {
-      return x === 0 ? 0 : Math.pow(2, 10 * x - 10);
-    }
-
-    // Cubic easing for boat speed (smoother but still responsive)
-    function easeOutCubic(x: number): number {
-      return 1 - Math.pow(1 - x, 3);
-    }
-
-    function easeInCubic(x: number): number {
-      return x * x * x;
-    }
-
-    function animate() {
-      const elapsed = Date.now() - startTime;
-
-      if (elapsed >= totalDuration) {
-        // Animation complete - restore all values to exactly what they were before simulation
-        setTrueWindSpeed(capturedWindSpeed);
-        setTrueWindAngle(capturedWindAngle);
-        setBoatSpeed(capturedBoatSpeed);
-        setBoatDirection(capturedBoatDirection);
-        setIsSimulating(false);
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-          animationRef.current = null;
-        }
-        return;
-      }
-
-      // Calculate wind progress with aggressive non-linear curve
-      let windMultiplier = 0;
-      if (elapsed < phase1Duration) {
-        // Phase 1: Wind increases rapidly with exponential curve (0-2s)
-        const phaseProgress = elapsed / phase1Duration;
-        windMultiplier = easeOutExpo(phaseProgress);
-      } else if (elapsed < phase3StartTime) {
-        // Between Phase 1 and Phase 3: Wind stays at peak
-        windMultiplier = 1;
-      } else if (elapsed < phase3StartTime + phase3Duration) {
-        // Phase 3: Wind decreases rapidly (4.5-7s)
-        const phaseProgress = (elapsed - phase3StartTime) / phase3Duration;
-        windMultiplier = 1 - easeInExpo(phaseProgress);
-      } else {
-        // After Phase 3: Wind back to base
-        windMultiplier = 0;
-      }
-
-      // Calculate boat speed progress with smoother but still aggressive curve
-      let boatSpeedMultiplier = 0;
-      if (elapsed < phase2StartTime) {
-        // Before Phase 2: Boat speed at base (0-0.5s)
-        boatSpeedMultiplier = 0;
-      } else if (elapsed < phase2StartTime + phase2Duration) {
-        // Phase 2: Boat speed increases with cubic ease (0.5-4.5s)
-        const phaseProgress = (elapsed - phase2StartTime) / phase2Duration;
-        boatSpeedMultiplier = easeOutCubic(phaseProgress);
-      } else if (elapsed < phase4StartTime) {
-        // Between Phase 2 and Phase 4: Boat speed stays at peak
-        boatSpeedMultiplier = 1;
-      } else if (elapsed < phase4StartTime + phase4Duration) {
-        // Phase 4: Boat speed decreases with cubic ease (5-9s)
-        const phaseProgress = (elapsed - phase4StartTime) / phase4Duration;
-        boatSpeedMultiplier = 1 - easeInCubic(phaseProgress);
-      } else {
-        // After Phase 4: Boat speed back to base
-        boatSpeedMultiplier = 0;
-      }
-
-      // Apply multipliers to base values
-      setTrueWindSpeed(capturedWindSpeed + gustSpeed * windMultiplier);
-      setBoatSpeed(
-        capturedBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier
-      );
-
-      // Ensure boat direction and wind angle remain constant during simulation
-      setBoatDirection(capturedBoatDirection);
-      setTrueWindAngle(capturedWindAngle);
-
-      animationRef.current = requestAnimationFrame(animate);
-    }
-
-    animate();
-  }
-
-  // Cleanup animation on unmount
-  useEffect(() => {
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div

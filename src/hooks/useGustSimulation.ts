@@ -1,33 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 
-type GustSimulationParams = {
+type UseGustSimulationProps = {
+  gustSpeed: number;
   trueWindSpeed: number;
   trueWindAngle: number;
   boatSpeed: number;
   boatDirection: number;
-  gustSpeed: number;
+  setTrueWindSpeed: (speed: number) => void;
+  setTrueWindAngle: (angle: number) => void;
+  setBoatSpeed: (speed: number) => void;
+  setBoatDirection: (direction: number) => void;
 };
 
 export function useGustSimulation({
-  trueWindSpeed,
-  boatSpeed,
   gustSpeed,
-}: Omit<GustSimulationParams, "trueWindAngle" | "boatDirection">) {
+  trueWindSpeed,
+  trueWindAngle,
+  boatSpeed,
+  boatDirection,
+  setTrueWindSpeed,
+  setTrueWindAngle,
+  setBoatSpeed,
+  setBoatDirection,
+}: UseGustSimulationProps) {
   const [isSimulating, setIsSimulating] = useState(false);
-  const [baseWindSpeed, setBaseWindSpeed] = useState(trueWindSpeed);
-  const [baseBoatSpeed, setBaseBoatSpeed] = useState(boatSpeed);
   const animationRef = useRef<number | null>(null);
-
-  const [currentTrueWindSpeed, setCurrentTrueWindSpeed] =
-    useState(trueWindSpeed);
-  const [currentBoatSpeed, setCurrentBoatSpeed] = useState(boatSpeed);
-
-  useEffect(() => {
-    if (!isSimulating) {
-      setCurrentTrueWindSpeed(trueWindSpeed);
-      setCurrentBoatSpeed(boatSpeed);
-    }
-  }, [trueWindSpeed, boatSpeed, isSimulating]);
 
   useEffect(() => {
     return () => {
@@ -37,11 +34,14 @@ export function useGustSimulation({
     };
   }, []);
 
-  const simulateGust = () => {
+  function simulateGust() {
     if (isSimulating) return;
 
-    setBaseWindSpeed(trueWindSpeed);
-    setBaseBoatSpeed(boatSpeed);
+    const capturedWindSpeed = trueWindSpeed;
+    const capturedWindAngle = trueWindAngle;
+    const capturedBoatSpeed = boatSpeed;
+    const capturedBoatDirection = boatDirection;
+
     setIsSimulating(true);
 
     const startTime = Date.now();
@@ -57,19 +57,30 @@ export function useGustSimulation({
 
     const inducedSpeedIncrease = gustSpeed * 0.4;
 
-    const easeOutExpo = (x: number): number =>
-      x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    const easeInExpo = (x: number): number =>
-      x === 0 ? 0 : Math.pow(2, 10 * x - 10);
-    const easeOutCubic = (x: number): number => 1 - Math.pow(1 - x, 3);
-    const easeInCubic = (x: number): number => x * x * x;
+    function easeOutExpo(x: number): number {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+
+    function easeInExpo(x: number): number {
+      return x === 0 ? 0 : Math.pow(2, 10 * x - 10);
+    }
+
+    function easeOutCubic(x: number): number {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    function easeInCubic(x: number): number {
+      return x * x * x;
+    }
 
     function animate() {
       const elapsed = Date.now() - startTime;
 
       if (elapsed >= totalDuration) {
-        setCurrentTrueWindSpeed(baseWindSpeed);
-        setCurrentBoatSpeed(baseBoatSpeed);
+        setTrueWindSpeed(capturedWindSpeed);
+        setTrueWindAngle(capturedWindAngle);
+        setBoatSpeed(capturedBoatSpeed);
+        setBoatDirection(capturedBoatDirection);
         setIsSimulating(false);
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
@@ -106,21 +117,21 @@ export function useGustSimulation({
         boatSpeedMultiplier = 0;
       }
 
-      setCurrentTrueWindSpeed(baseWindSpeed + gustSpeed * windMultiplier);
-      setCurrentBoatSpeed(
-        baseBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier
+      setTrueWindSpeed(capturedWindSpeed + gustSpeed * windMultiplier);
+      setBoatSpeed(
+        capturedBoatSpeed + inducedSpeedIncrease * boatSpeedMultiplier
       );
+      setBoatDirection(capturedBoatDirection);
+      setTrueWindAngle(capturedWindAngle);
 
       animationRef.current = requestAnimationFrame(animate);
     }
 
     animate();
-  };
+  }
 
   return {
     isSimulating,
-    currentTrueWindSpeed,
-    currentBoatSpeed,
     simulateGust,
   };
 }
