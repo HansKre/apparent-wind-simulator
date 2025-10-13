@@ -85,9 +85,9 @@ export function useDragInteraction({
     };
   }
 
-  function handlePointerDown(clientX: number, clientY: number) {
+  function handlePointerDown(clientX: number, clientY: number): boolean {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return false;
 
     const rect = canvas.getBoundingClientRect();
     const pointerX = clientX - rect.left;
@@ -105,7 +105,7 @@ export function useDragInteraction({
         startX: pointerX,
         startY: pointerY,
       });
-      return;
+      return true;
     }
 
     // Check if clicking on induced wind arrow start (drag handle - the end away from boat)
@@ -120,8 +120,10 @@ export function useDragInteraction({
         startBoatDirection: boatDirection,
         startBoatSpeed: boatSpeed,
       });
-      return;
+      return true;
     }
+
+    return false;
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -129,11 +131,13 @@ export function useDragInteraction({
   }
 
   function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
-    // Prevent default to avoid scrolling while dragging
-    e.preventDefault();
     if (e.touches.length === 1) {
       const touch = e.touches[0];
-      handlePointerDown(touch.clientX, touch.clientY);
+      const hitHandle = handlePointerDown(touch.clientX, touch.clientY);
+      // Only prevent default if we hit a drag handle
+      if (hitHandle) {
+        e.preventDefault();
+      }
     }
   }
 
@@ -211,9 +215,9 @@ export function useDragInteraction({
   }
 
   function handleTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
-    // Prevent default to avoid scrolling while dragging
-    e.preventDefault();
     if (e.touches.length === 1 && dragState.isDragging) {
+      // Only prevent default if we're actually dragging
+      e.preventDefault();
       const touch = e.touches[0];
       handlePointerMove(touch.clientX, touch.clientY);
     }
@@ -233,7 +237,10 @@ export function useDragInteraction({
   }
 
   function handleTouchEnd(e: React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
+    // Only prevent default if we were dragging
+    if (dragState.isDragging) {
+      e.preventDefault();
+    }
     handlePointerUp();
   }
 
