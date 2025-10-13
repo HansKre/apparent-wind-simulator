@@ -376,9 +376,11 @@ export function WindSimulator() {
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
           className={
-            isHoveringHandle || dragState.isDragging
-              ? "cursor-crosshair"
-              : "cursor-default"
+            dragState.isDragging
+              ? "cursor-grabbing"
+              : isHoveringHandle
+                ? "cursor-grab"
+                : "cursor-default"
           }
           style={{ touchAction: "none" }}
         />
