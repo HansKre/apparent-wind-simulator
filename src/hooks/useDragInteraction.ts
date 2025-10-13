@@ -8,17 +8,21 @@ import {
 
 type DragState = {
   isDragging: boolean;
-  dragType: "trueWind" | "inducedWind" | null;
+  dragType: "trueWind" | "inducedWind" | "boat" | null;
   startX: number;
   startY: number;
   startBoatDirection?: number;
   startBoatSpeed?: number;
+  startBoatOffsetX?: number;
+  startBoatOffsetY?: number;
 };
 
 type UseDragInteractionProps = {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   centerX: number;
   centerY: number;
+  boatX: number;
+  boatY: number;
   scale: number;
   zoomLevel: number;
   boatDirection: number;
@@ -29,12 +33,16 @@ type UseDragInteractionProps = {
   setTrueWindAngle: (angle: number) => void;
   setBoatSpeed: (speed: number) => void;
   setBoatDirection: (direction: number) => void;
+  setBoatOffsetX: (offset: number) => void;
+  setBoatOffsetY: (offset: number) => void;
 };
 
 export function useDragInteraction({
   canvasRef,
   centerX,
   centerY,
+  boatX,
+  boatY,
   scale,
   zoomLevel,
   boatDirection,
@@ -45,6 +53,8 @@ export function useDragInteraction({
   setTrueWindAngle,
   setBoatSpeed,
   setBoatDirection,
+  setBoatOffsetX,
+  setBoatOffsetY,
 }: UseDragInteractionProps) {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -58,8 +68,8 @@ export function useDragInteraction({
   function calculateVectorPositions() {
     const boatFrontOffset = 40 * zoomLevel;
     const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-    const boatFrontX = centerX + boatFrontVector.x;
-    const boatFrontY = centerY + boatFrontVector.y;
+    const boatFrontX = boatX + boatFrontVector.x;
+    const boatFrontY = boatY + boatFrontVector.y;
 
     const inducedVectorDirection = polarToCartesian(
       boatSpeed * scale,
@@ -94,6 +104,28 @@ export function useDragInteraction({
     const pointerY = clientY - rect.top;
 
     const positions = calculateVectorPositions();
+
+    // Check if clicking on the boat itself (larger hit area for boat)
+    const boatHitRadius = 50 * zoomLevel; // Larger hit area for the boat
+    if (distance(pointerX, pointerY, boatX, boatY) < boatHitRadius) {
+      // Check if we're NOT on a handle (handles take priority)
+      const onTrueWindHandle =
+        distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
+      const onInducedWindHandle =
+        distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
+
+      if (!onTrueWindHandle && !onInducedWindHandle) {
+        setDragState({
+          isDragging: true,
+          dragType: "boat",
+          startX: pointerX,
+          startY: pointerY,
+          startBoatOffsetX: boatX - centerX,
+          startBoatOffsetY: boatY - centerY,
+        });
+        return true;
+      }
+    }
 
     // Check if clicking on true wind arrow tail (drag handle)
     if (
@@ -158,8 +190,9 @@ export function useDragInteraction({
         distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
       const hoveringInducedWind =
         distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
+      const hoveringBoat = distance(pointerX, pointerY, boatX, boatY) < 50 * zoomLevel;
 
-      setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind);
+      setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind || hoveringBoat);
       return;
     }
 
@@ -191,8 +224,8 @@ export function useDragInteraction({
       // When dragging induced wind start (the draggable end away from boat)
       const boatFrontOffset = 40 * zoomLevel;
       const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-      const boatFrontX = centerX + boatFrontVector.x;
-      const boatFrontY = centerY + boatFrontVector.y;
+      const boatFrontX = boatX + boatFrontVector.x;
+      const boatFrontY = boatY + boatFrontVector.y;
 
       // Vector from pointer (start/drag point) to boat front (end/arrowhead)
       const dx = boatFrontX - pointerX;
@@ -207,6 +240,16 @@ export function useDragInteraction({
       // The arrow points in direction arrowAngle (opposite to boat movement)
       // So boat moves in the opposite direction
       setBoatDirection(normalizeAngle(arrowAngle + 180));
+    } else if (dragState.dragType === "boat") {
+      // When dragging the boat, move it by the delta from the start position
+      const deltaX = pointerX - dragState.startX;
+      const deltaY = pointerY - dragState.startY;
+
+      const newOffsetX = (dragState.startBoatOffsetX ?? 0) + deltaX;
+      const newOffsetY = (dragState.startBoatOffsetY ?? 0) + deltaY;
+
+      setBoatOffsetX(newOffsetX);
+      setBoatOffsetY(newOffsetY);
     }
   }
 

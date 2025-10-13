@@ -24,6 +24,10 @@ export function WindSimulator() {
   const [boatSpeed, setBoatSpeed] = useState(10);
   const [boatDirection, setBoatDirection] = useState(0); // 0° = North (up)
 
+  // Boat position state (offset from canvas center)
+  const [boatOffsetX, setBoatOffsetX] = useState(0);
+  const [boatOffsetY, setBoatOffsetY] = useState(0);
+
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
 
@@ -44,6 +48,10 @@ export function WindSimulator() {
   const centerX = canvasSize.width / 2;
   const centerY = canvasSize.height / 2;
 
+  // Boat position (center + offset)
+  const boatX = centerX + boatOffsetX;
+  const boatY = centerY + boatOffsetY;
+
   // Drag interaction hook
   const {
     dragState,
@@ -59,6 +67,8 @@ export function WindSimulator() {
     canvasRef,
     centerX,
     centerY,
+    boatX,
+    boatY,
     scale,
     zoomLevel,
     boatDirection,
@@ -69,6 +79,8 @@ export function WindSimulator() {
     setTrueWindAngle,
     setBoatSpeed,
     setBoatDirection,
+    setBoatOffsetX,
+    setBoatOffsetY,
   });
 
   // Gust simulation hook
@@ -193,8 +205,8 @@ export function WindSimulator() {
     // Boat front: The bow of the boat extends in the direction of travel
     const boatFrontOffset = 40 * zoomLevel; // pixels from center to front of boat (scaled with zoom)
     const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-    const boatFrontX = centerX + boatFrontVector.x;
-    const boatFrontY = centerY + boatFrontVector.y;
+    const boatFrontX = boatX + boatFrontVector.x;
+    const boatFrontY = boatY + boatFrontVector.y;
 
     // Induced wind: arrow comes from opposite direction to boat, ending at boat front
     // Arrow points TOWARD boat front, with arrowhead AT boat front
@@ -227,8 +239,8 @@ export function WindSimulator() {
     // Draw vectors (from start to end, with arrowhead at end)
     drawBoat(
       ctx,
-      centerX,
-      centerY,
+      boatX,
+      boatY,
       boatDirection,
       zoomLevel,
       boatImageRef.current
@@ -311,7 +323,7 @@ export function WindSimulator() {
           COLORS.trueWind
         );
       } else if (dragState.dragType === "inducedWind") {
-        drawAngleArc(ctx, centerX, centerY, boatDirection, COLORS.inducedWind);
+        drawAngleArc(ctx, boatX, boatY, boatDirection, COLORS.inducedWind);
       }
     }
   }, [
@@ -327,6 +339,8 @@ export function WindSimulator() {
     zoomLevel,
     centerX,
     centerY,
+    boatX,
+    boatY,
     scale,
   ]);
 
