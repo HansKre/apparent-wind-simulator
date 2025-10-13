@@ -17,6 +17,14 @@ type DragState = {
   startBoatOffsetY?: number;
 };
 
+type PinchState = {
+  isPinching: boolean;
+  initialDistance: number;
+  initialZoom: number;
+  lastPanX?: number;
+  lastPanY?: number;
+};
+
 type UseDragInteractionProps = {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   centerX: number;
@@ -35,6 +43,7 @@ type UseDragInteractionProps = {
   setBoatDirection: (direction: number) => void;
   setBoatOffsetX: (offset: number) => void;
   setBoatOffsetY: (offset: number) => void;
+  setZoomLevel: (zoom: number | ((prev: number) => number)) => void;
 };
 
 export function useDragInteraction({
@@ -55,6 +64,7 @@ export function useDragInteraction({
   setBoatDirection,
   setBoatOffsetX,
   setBoatOffsetY,
+  setZoomLevel,
 }: UseDragInteractionProps) {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -63,7 +73,33 @@ export function useDragInteraction({
     startY: 0,
   });
 
+  const [pinchState, setPinchState] = useState<PinchState>({
+    isPinching: false,
+    initialDistance: 0,
+    initialZoom: 1,
+  });
+
   const [isHoveringHandle, setIsHoveringHandle] = useState(false);
+
+  // Helper function to calculate distance between two touch points
+  function getTouchDistance(touch1: React.Touch, touch2: React.Touch): number {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Helper function to get the midpoint between two touch points
+  function getTouchMidpoint(
+    touch1: React.Touch,
+    touch2: React.Touch,
+    canvas: HTMLCanvasElement
+  ): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((touch1.clientX + touch2.clientX) / 2 - rect.left),
+      y: ((touch1.clientY + touch2.clientY) / 2 - rect.top),
+    };
+  }
 
   function calculateVectorPositions() {
     const boatFrontOffset = 40 * zoomLevel;
@@ -151,7 +187,34 @@ export function useDragInteraction({
   }
 
   function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
-    if (e.touches.length === 1) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Two-finger pinch gesture
+    if (e.touches.length === 2) {
+      e.preventDefault(); // Prevent default zoom behavior
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const initialDistance = getTouchDistance(touch1, touch2);
+      const midpoint = getTouchMidpoint(touch1, touch2, canvas);
+
+      setPinchState({
+        isPinching: true,
+        initialDistance,
+        initialZoom: zoomLevel,
+        lastPanX: midpoint.x,
+        lastPanY: midpoint.y,
+      });
+
+      // Cancel any ongoing drag
+      setDragState({
+        isDragging: false,
+        dragType: null,
+        startX: 0,
+        startY: 0,
+      });
+    } else if (e.touches.length === 1) {
+      // Single touch - handle arrow dragging or canvas panning
       const touch = e.touches[0];
       const hitHandle = handlePointerDown(touch.clientX, touch.clientY);
       // Only prevent default if we hit a drag handle
@@ -247,8 +310,39 @@ export function useDragInteraction({
   }
 
   function handleTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
-    if (e.touches.length === 1 && dragState.isDragging) {
-      // Only prevent default if we're actually dragging
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Two-finger pinch gesture
+    if (e.touches.length === 2 && pinchState.isPinching) {
+      e.preventDefault(); // Prevent default zoom behavior
+
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentDistance = getTouchDistance(touch1, touch2);
+      const midpoint = getTouchMidpoint(touch1, touch2, canvas);
+
+      // Calculate zoom factor based on distance change
+      const scale = currentDistance / pinchState.initialDistance;
+      const newZoom = Math.max(0.5, Math.min(3, pinchState.initialZoom * scale));
+      setZoomLevel(newZoom);
+
+      // Calculate pan based on midpoint movement
+      if (pinchState.lastPanX !== undefined && pinchState.lastPanY !== undefined) {
+        const deltaX = midpoint.x - pinchState.lastPanX;
+        const deltaY = midpoint.y - pinchState.lastPanY;
+
+        setBoatOffsetX((prev) => prev + deltaX);
+        setBoatOffsetY((prev) => prev + deltaY);
+
+        setPinchState((prev) => ({
+          ...prev,
+          lastPanX: midpoint.x,
+          lastPanY: midpoint.y,
+        }));
+      }
+    } else if (e.touches.length === 1 && dragState.isDragging) {
+      // Single touch drag - handle arrow dragging or canvas panning
       e.preventDefault();
       const touch = e.touches[0];
       handlePointerMove(touch.clientX, touch.clientY);
@@ -269,11 +363,25 @@ export function useDragInteraction({
   }
 
   function handleTouchEnd(e: React.TouchEvent<HTMLCanvasElement>) {
+    // Reset pinch state when fingers are lifted
+    if (pinchState.isPinching && e.touches.length < 2) {
+      setPinchState({
+        isPinching: false,
+        initialDistance: 0,
+        initialZoom: 1,
+      });
+      e.preventDefault();
+    }
+
     // Only prevent default if we were dragging
     if (dragState.isDragging) {
       e.preventDefault();
     }
-    handlePointerUp();
+
+    // If all touches are gone, reset drag state
+    if (e.touches.length === 0) {
+      handlePointerUp();
+    }
   }
 
   function handleMouseLeave() {

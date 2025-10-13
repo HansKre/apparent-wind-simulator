@@ -81,6 +81,7 @@ export function WindSimulator() {
     setBoatDirection,
     setBoatOffsetX,
     setBoatOffsetY,
+    setZoomLevel,
   });
 
   // Gust simulation hook
