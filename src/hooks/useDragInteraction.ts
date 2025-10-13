@@ -105,29 +105,7 @@ export function useDragInteraction({
 
     const positions = calculateVectorPositions();
 
-    // Check if clicking on the boat itself (larger hit area for boat)
-    const boatHitRadius = 50 * zoomLevel; // Larger hit area for the boat
-    if (distance(pointerX, pointerY, boatX, boatY) < boatHitRadius) {
-      // Check if we're NOT on a handle (handles take priority)
-      const onTrueWindHandle =
-        distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
-      const onInducedWindHandle =
-        distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
-
-      if (!onTrueWindHandle && !onInducedWindHandle) {
-        setDragState({
-          isDragging: true,
-          dragType: "boat",
-          startX: pointerX,
-          startY: pointerY,
-          startBoatOffsetX: boatX - centerX,
-          startBoatOffsetY: boatY - centerY,
-        });
-        return true;
-      }
-    }
-
-    // Check if clicking on true wind arrow tail (drag handle)
+    // Check if clicking on true wind arrow tail (drag handle) - highest priority
     if (
       distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20
     ) {
@@ -155,7 +133,17 @@ export function useDragInteraction({
       return true;
     }
 
-    return false;
+    // If not clicking on any handle, treat it as dragging the boat
+    // This allows clicking anywhere on the canvas to drag the boat
+    setDragState({
+      isDragging: true,
+      dragType: "boat",
+      startX: pointerX,
+      startY: pointerY,
+      startBoatOffsetX: boatX - centerX,
+      startBoatOffsetY: boatY - centerY,
+    });
+    return true;
   }
 
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -190,9 +178,10 @@ export function useDragInteraction({
         distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
       const hoveringInducedWind =
         distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
-      const hoveringBoat = distance(pointerX, pointerY, boatX, boatY) < 50 * zoomLevel;
 
-      setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind || hoveringBoat);
+      // Always show grab cursor since we can drag from anywhere
+      // (handles take priority and will show grab cursor too)
+      setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind || true);
       return;
     }
 
