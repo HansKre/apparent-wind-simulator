@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   cartesianToPolar,
-  distance,
   normalizeAngle,
   polarToCartesian,
 } from "../utils/windCalculations";
@@ -13,17 +12,9 @@ import {
   drawAngleBetweenArrows,
 } from "../utils/canvasDrawing";
 import { COLORS } from "../constants/windSimulator";
+import { useDragInteraction } from "../hooks/useDragInteraction";
 import { DataPanel } from "./DataPanel";
 import { ZoomControls } from "./ZoomControls";
-
-type DragState = {
-  isDragging: boolean;
-  dragType: "trueWind" | "inducedWind" | null;
-  startX: number;
-  startY: number;
-  startBoatDirection?: number;
-  startBoatSpeed?: number;
-};
 
 export function WindSimulator() {
   // Wind state
@@ -42,21 +33,35 @@ export function WindSimulator() {
   const containerRef = useRef<HTMLDivElement>(null);
   const boatImageRef = useRef<HTMLImageElement | null>(null);
 
-  // Drag state
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    dragType: null,
-    startX: 0,
-    startY: 0,
-  });
-
-  // Hover state for cursor control
-  const [isHoveringHandle, setIsHoveringHandle] = useState(false);
-
   // Canvas dimensions and zoom
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [boatImageLoaded, setBoatImageLoaded] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = 100%, 0.5 = 50%, 2 = 200%
+
+  // Scale factor for visualization (pixels per knot) with zoom applied
+  const scale = 15 * zoomLevel;
+
+  // Center point of canvas
+  const centerX = canvasSize.width / 2;
+  const centerY = canvasSize.height / 2;
+
+  // Drag interaction hook
+  const { dragState, isHoveringHandle, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave } =
+    useDragInteraction({
+      canvasRef,
+      centerX,
+      centerY,
+      scale,
+      zoomLevel,
+      boatDirection,
+      boatSpeed,
+      trueWindSpeed,
+      trueWindAngle,
+      setTrueWindSpeed,
+      setTrueWindAngle,
+      setBoatSpeed,
+      setBoatDirection,
+    });
 
   // Load boat SVG
   useEffect(() => {
@@ -88,13 +93,6 @@ export function WindSimulator() {
   const apparentPolar = cartesianToPolar(apparentWindX, apparentWindY);
   const apparentWindSpeed = apparentPolar.speed;
   const apparentWindAngle = apparentPolar.angle;
-
-  // Scale factor for visualization (pixels per knot) with zoom applied
-  const scale = 15 * zoomLevel;
-
-  // Center point of canvas
-  const centerX = canvasSize.width / 2;
-  const centerY = canvasSize.height / 2;
 
   // Update canvas size on resize
   useEffect(() => {
@@ -240,8 +238,6 @@ export function WindSimulator() {
     scale,
   ]);
 
-
-
   function drawTrueWind(
     ctx: CanvasRenderingContext2D,
     startX: number,
@@ -309,175 +305,6 @@ export function WindSimulator() {
       apparentWindSpeed,
       "AWS"
     );
-  }
-
-
-  // Mouse event handlers
-  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Calculate current vector positions for drag handles
-    // First calculate boat front position
-    const boatFrontOffset = 40 * zoomLevel;
-    const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-    const boatFrontX = centerX + boatFrontVector.x;
-    const boatFrontY = centerY + boatFrontVector.y;
-
-    const inducedVectorDirection = polarToCartesian(
-      boatSpeed * scale,
-      normalizeAngle(boatDirection + 180)
-    );
-    const inducedStartX = boatFrontX - inducedVectorDirection.x; // The draggable end (away from boat, opposite direction)
-    const inducedStartY = boatFrontY - inducedVectorDirection.y;
-
-    const trueWindVector = polarToCartesian(
-      trueWindSpeed * scale,
-      trueWindAngle
-    );
-    const trueWindTailX = inducedStartX - trueWindVector.x;
-    const trueWindTailY = inducedStartY - trueWindVector.y;
-
-    // Check if clicking on true wind arrow tail (drag handle)
-    if (distance(mouseX, mouseY, trueWindTailX, trueWindTailY) < 20) {
-      setDragState({
-        isDragging: true,
-        dragType: "trueWind",
-        startX: mouseX,
-        startY: mouseY,
-      });
-      return;
-    }
-
-    // Check if clicking on induced wind arrow start (drag handle - the end away from boat)
-    if (distance(mouseX, mouseY, inducedStartX, inducedStartY) < 20) {
-      setDragState({
-        isDragging: true,
-        dragType: "inducedWind",
-        startX: mouseX,
-        startY: mouseY,
-        startBoatDirection: boatDirection,
-        startBoatSpeed: boatSpeed,
-      });
-      return;
-    }
-  }
-
-  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Check if hovering over any drag handle (only when not dragging)
-    if (!dragState.isDragging) {
-      // Calculate current vector positions for drag handles
-      const boatFrontOffset = 40 * zoomLevel;
-      const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-      const boatFrontX = centerX + boatFrontVector.x;
-      const boatFrontY = centerY + boatFrontVector.y;
-
-      const inducedVectorDirection = polarToCartesian(
-        boatSpeed * scale,
-        normalizeAngle(boatDirection + 180)
-      );
-      const inducedStartX = boatFrontX - inducedVectorDirection.x;
-      const inducedStartY = boatFrontY - inducedVectorDirection.y;
-
-      const trueWindVector = polarToCartesian(
-        trueWindSpeed * scale,
-        trueWindAngle
-      );
-      const trueWindTailX = inducedStartX - trueWindVector.x;
-      const trueWindTailY = inducedStartY - trueWindVector.y;
-
-      // Check if hovering over any drag handle
-      const hoveringTrueWind =
-        distance(mouseX, mouseY, trueWindTailX, trueWindTailY) < 20;
-      const hoveringInducedWind =
-        distance(mouseX, mouseY, inducedStartX, inducedStartY) < 20;
-
-      setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind);
-      return;
-    }
-
-    // Only update if mouse has moved at least 2 pixels from start
-    const distFromStart = distance(
-      mouseX,
-      mouseY,
-      dragState.startX,
-      dragState.startY
-    );
-    if (distFromStart < 2) return;
-
-    if (dragState.dragType === "trueWind") {
-      // When dragging true wind tail, calculate the vector
-      // True wind head connects to induced wind START (the end away from boat)
-      const boatFrontOffset = 40 * zoomLevel;
-      const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-      const boatFrontX = centerX + boatFrontVector.x;
-      const boatFrontY = centerY + boatFrontVector.y;
-
-      const inducedVectorDirection = polarToCartesian(
-        boatSpeed * scale,
-        normalizeAngle(boatDirection + 180)
-      );
-      const inducedStartX = boatFrontX - inducedVectorDirection.x;
-      const inducedStartY = boatFrontY - inducedVectorDirection.y;
-
-      // True wind vector is from mouse (tail) to induced wind start
-      const trueWindX = inducedStartX - mouseX;
-      const trueWindY = inducedStartY - mouseY;
-      const { speed: newTrueSpeed, angle: newTrueAngle } = cartesianToPolar(
-        trueWindX,
-        trueWindY
-      );
-      const clampedSpeed = Math.max(0.1, Math.min(30, newTrueSpeed / scale));
-
-      setTrueWindSpeed(clampedSpeed);
-      setTrueWindAngle(newTrueAngle);
-    } else if (dragState.dragType === "inducedWind") {
-      // When dragging induced wind start (the draggable end away from boat)
-      // Calculate boat front position (where the arrowhead is)
-      const boatFrontOffset = 40 * zoomLevel;
-      const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
-      const boatFrontX = centerX + boatFrontVector.x;
-      const boatFrontY = centerY + boatFrontVector.y;
-
-      // Vector from mouse (start/drag point) to boat front (end/arrowhead)
-      const dx = boatFrontX - mouseX;
-      const dy = boatFrontY - mouseY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const newSpeed = Math.max(0.1, Math.min(30, dist / scale));
-
-      // Calculate the angle the arrow points (from start to end)
-      const { angle: arrowAngle } = cartesianToPolar(dx, dy);
-
-      setBoatSpeed(newSpeed);
-      // The arrow points in direction arrowAngle (opposite to boat movement)
-      // So boat moves in the opposite direction
-      setBoatDirection(normalizeAngle(arrowAngle + 180));
-    }
-  }
-
-  function handleMouseUp() {
-    setDragState({
-      isDragging: false,
-      dragType: null,
-      startX: 0,
-      startY: 0,
-    });
-  }
-
-  function handleMouseLeave() {
-    handleMouseUp();
-    setIsHoveringHandle(false);
   }
 
   // Zoom functions
