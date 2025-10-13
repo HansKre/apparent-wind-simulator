@@ -16,6 +16,7 @@ import {
   polarToCartesian,
 } from "../utils/windCalculations";
 import { DataPanel } from "./DataPanel";
+import { SimulationModal } from "./SimulationModal";
 import { ZoomControls } from "./ZoomControls";
 
 export function WindSimulator() {
@@ -46,6 +47,13 @@ export function WindSimulator() {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [boatImageLoaded, setBoatImageLoaded] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = 100%, 0.5 = 50%, 2 = 200%
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [hasSimulatedOnce, setHasSimulatedOnce] = useState(false);
+  const [lastSimulationType, setLastSimulationType] = useState<"gust" | "lull">(
+    "gust"
+  );
 
   // Scale factor for visualization (pixels per knot) with zoom applied
   const scale = 15 * zoomLevel;
@@ -400,6 +408,22 @@ export function WindSimulator() {
           style={{ touchAction: "none" }}
         />
 
+        <SimulationButtons
+          onSimulate={() => {
+            if (!hasSimulatedOnce) {
+              setIsModalOpen(true);
+            } else {
+              if (lastSimulationType === "gust") {
+                simulateGust();
+              } else {
+                simulateLull();
+              }
+            }
+          }}
+          onOpenSettings={() => setIsModalOpen(true)}
+          isSimulating={isSimulatingGust || isSimulatingLull}
+        />
+
         <ZoomControls
           zoomLevel={zoomLevel}
           onZoomIn={handleZoomIn}
@@ -408,20 +432,113 @@ export function WindSimulator() {
         />
       </div>
 
-      <DataPanel
-        gustSpeed={gustSpeed}
-        isSimulatingGust={isSimulatingGust}
-        autoHeadUpGust={autoHeadUpGust}
-        onGustSpeedChange={setGustSpeed}
-        onSimulateGust={simulateGust}
-        onAutoHeadUpGustChange={setAutoHeadUpGust}
-        lullSpeed={lullSpeed}
-        isSimulatingLull={isSimulatingLull}
-        autoHeadUpLull={autoHeadUpLull}
-        onLullSpeedChange={setLullSpeed}
-        onSimulateLull={simulateLull}
-        onAutoHeadUpLullChange={setAutoHeadUpLull}
-      />
+      {/* Show DataPanel on desktop only */}
+      <div className="hidden lg:block" data-testid="desktop-data-panel">
+        <DataPanel
+          gustSpeed={gustSpeed}
+          isSimulatingGust={isSimulatingGust}
+          autoHeadUpGust={autoHeadUpGust}
+          onGustSpeedChange={setGustSpeed}
+          onSimulateGust={() => {
+            setHasSimulatedOnce(true);
+            setLastSimulationType("gust");
+            simulateGust();
+          }}
+          onAutoHeadUpGustChange={setAutoHeadUpGust}
+          lullSpeed={lullSpeed}
+          isSimulatingLull={isSimulatingLull}
+          autoHeadUpLull={autoHeadUpLull}
+          onLullSpeedChange={setLullSpeed}
+          onSimulateLull={() => {
+            setHasSimulatedOnce(true);
+            setLastSimulationType("lull");
+            simulateLull();
+          }}
+          onAutoHeadUpLullChange={setAutoHeadUpLull}
+        />
+      </div>
+
+      {/* Show modal on mobile only */}
+      <div className="lg:hidden" data-testid="mobile-modal-container">
+        <SimulationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          gustSpeed={gustSpeed}
+          isSimulatingGust={isSimulatingGust}
+          autoHeadUpGust={autoHeadUpGust}
+          onGustSpeedChange={setGustSpeed}
+          onSimulateGust={() => {
+            setHasSimulatedOnce(true);
+            setLastSimulationType("gust");
+            simulateGust();
+          }}
+          onAutoHeadUpGustChange={setAutoHeadUpGust}
+          lullSpeed={lullSpeed}
+          isSimulatingLull={isSimulatingLull}
+          autoHeadUpLull={autoHeadUpLull}
+          onLullSpeedChange={setLullSpeed}
+          onSimulateLull={() => {
+            setHasSimulatedOnce(true);
+            setLastSimulationType("lull");
+            simulateLull();
+          }}
+          onAutoHeadUpLullChange={setAutoHeadUpLull}
+        />
+      </div>
+    </div>
+  );
+}
+
+type SimulationButtonsProps = {
+  onSimulate: () => void;
+  onOpenSettings: () => void;
+  isSimulating: boolean;
+};
+
+function SimulationButtons({
+  onSimulate,
+  onOpenSettings,
+  isSimulating,
+}: SimulationButtonsProps) {
+  return (
+    <div
+      className="lg:hidden absolute bottom-4 left-4 flex gap-2"
+      data-testid="simulation-buttons"
+    >
+      <button
+        onClick={onSimulate}
+        className="glass-dark px-4 py-2 rounded-lg text-white font-medium hover:bg-white/20 transition-all shadow-lg"
+        data-testid="simulate-button"
+      >
+        {isSimulating ? "Simulating..." : "Simulate"}
+      </button>
+      <button
+        onClick={onOpenSettings}
+        className="glass-dark p-2 rounded-lg text-white hover:bg-white/20 transition-all shadow-lg"
+        data-testid="settings-button"
+        aria-label="Simulation settings"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+      </button>
     </div>
   );
 }
