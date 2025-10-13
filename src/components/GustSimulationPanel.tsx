@@ -3,15 +3,19 @@ import { GustSpeedSlider } from "./GustSpeedSlider";
 type Props = {
   gustSpeed: number;
   isSimulating: boolean;
+  autoHeadUp: boolean;
   onGustSpeedChange: (speed: number) => void;
   onSimulate: () => void;
+  onAutoHeadUpChange: (enabled: boolean) => void;
 };
 
 export function GustSimulationPanel({
   gustSpeed,
   isSimulating,
+  autoHeadUp,
   onGustSpeedChange,
   onSimulate,
+  onAutoHeadUpChange,
 }: Props) {
   return (
     <div
@@ -28,6 +32,22 @@ export function GustSimulationPanel({
           onChange={onGustSpeedChange}
           disabled={isSimulating}
         />
+        <label
+          className="flex items-center gap-3 cursor-pointer"
+          data-testid="auto-head-up-label"
+        >
+          <input
+            type="checkbox"
+            checked={autoHeadUp}
+            onChange={(e) => onAutoHeadUpChange(e.target.checked)}
+            disabled={isSimulating}
+            className="w-5 h-5 text-amber-500 bg-white/10 border-2 border-amber-500/30 rounded focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            data-testid="auto-head-up-checkbox"
+          />
+          <span className="text-white font-medium select-none">
+            Auto head-up (45°)
+          </span>
+        </label>
         <button
           onClick={onSimulate}
           disabled={isSimulating}

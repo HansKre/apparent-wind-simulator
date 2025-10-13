@@ -30,6 +30,7 @@ export function WindSimulator() {
 
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
+  const [autoHeadUp, setAutoHeadUp] = useState(false);
 
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,6 +92,7 @@ export function WindSimulator() {
     trueWindAngle,
     boatSpeed,
     boatDirection,
+    autoHeadUp,
     setTrueWindSpeed,
     setTrueWindAngle,
     setBoatSpeed,
@@ -390,8 +392,10 @@ export function WindSimulator() {
       <DataPanel
         gustSpeed={gustSpeed}
         isSimulating={isSimulating}
+        autoHeadUp={autoHeadUp}
         onGustSpeedChange={setGustSpeed}
         onSimulateGust={simulateGust}
+        onAutoHeadUpChange={setAutoHeadUp}
       />
     </div>
   );
