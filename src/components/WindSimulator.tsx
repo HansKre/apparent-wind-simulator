@@ -52,6 +52,9 @@ export function WindSimulator() {
     handleMouseMove,
     handleMouseUp,
     handleMouseLeave,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
   } = useDragInteraction({
     canvasRef,
     centerX,
@@ -130,6 +133,50 @@ export function WindSimulator() {
       window.removeEventListener("resize", updateSize);
     };
   }, []);
+
+  // Add touch event listeners with passive: false to allow preventDefault
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Add touch event listeners with passive: false
+    canvas.addEventListener(
+      "touchstart",
+      handleTouchStart as unknown as EventListener,
+      {
+        passive: false,
+      }
+    );
+    canvas.addEventListener(
+      "touchmove",
+      handleTouchMove as unknown as EventListener,
+      {
+        passive: false,
+      }
+    );
+    canvas.addEventListener(
+      "touchend",
+      handleTouchEnd as unknown as EventListener,
+      {
+        passive: false,
+      }
+    );
+
+    return () => {
+      canvas.removeEventListener(
+        "touchstart",
+        handleTouchStart as unknown as EventListener
+      );
+      canvas.removeEventListener(
+        "touchmove",
+        handleTouchMove as unknown as EventListener
+      );
+      canvas.removeEventListener(
+        "touchend",
+        handleTouchEnd as unknown as EventListener
+      );
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // Drawing function
   useEffect(() => {
@@ -319,6 +366,7 @@ export function WindSimulator() {
               ? "cursor-crosshair"
               : "cursor-default"
           }
+          style={{ touchAction: "none" }}
         />
 
         <ZoomControls

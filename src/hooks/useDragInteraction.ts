@@ -85,38 +85,38 @@ export function useDragInteraction({
     };
   }
 
-  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handlePointerDown(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
 
     const positions = calculateVectorPositions();
 
     // Check if clicking on true wind arrow tail (drag handle)
     if (
-      distance(mouseX, mouseY, positions.trueWindTailX, positions.trueWindTailY) < 20
+      distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20
     ) {
       setDragState({
         isDragging: true,
         dragType: "trueWind",
-        startX: mouseX,
-        startY: mouseY,
+        startX: pointerX,
+        startY: pointerY,
       });
       return;
     }
 
     // Check if clicking on induced wind arrow start (drag handle - the end away from boat)
     if (
-      distance(mouseX, mouseY, positions.inducedStartX, positions.inducedStartY) < 20
+      distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20
     ) {
       setDragState({
         isDragging: true,
         dragType: "inducedWind",
-        startX: mouseX,
-        startY: mouseY,
+        startX: pointerX,
+        startY: pointerY,
         startBoatDirection: boatDirection,
         startBoatSpeed: boatSpeed,
       });
@@ -124,13 +124,26 @@ export function useDragInteraction({
     }
   }
 
-  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+  function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    handlePointerDown(e.clientX, e.clientY);
+  }
+
+  function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
+    // Prevent default to avoid scrolling while dragging
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      handlePointerDown(touch.clientX, touch.clientY);
+    }
+  }
+
+  function handlePointerMove(clientX: number, clientY: number) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
 
     // Check if hovering over any drag handle (only when not dragging)
     if (!dragState.isDragging) {
@@ -138,18 +151,18 @@ export function useDragInteraction({
 
       // Check if hovering over any drag handle
       const hoveringTrueWind =
-        distance(mouseX, mouseY, positions.trueWindTailX, positions.trueWindTailY) < 20;
+        distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
       const hoveringInducedWind =
-        distance(mouseX, mouseY, positions.inducedStartX, positions.inducedStartY) < 20;
+        distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
 
       setIsHoveringHandle(hoveringTrueWind || hoveringInducedWind);
       return;
     }
 
-    // Only update if mouse has moved at least 2 pixels from start
+    // Only update if pointer has moved at least 2 pixels from start
     const distFromStart = distance(
-      mouseX,
-      mouseY,
+      pointerX,
+      pointerY,
       dragState.startX,
       dragState.startY
     );
@@ -159,9 +172,9 @@ export function useDragInteraction({
       // When dragging true wind tail, calculate the vector
       const positions = calculateVectorPositions();
 
-      // True wind vector is from mouse (tail) to induced wind start
-      const trueWindX = positions.inducedStartX - mouseX;
-      const trueWindY = positions.inducedStartY - mouseY;
+      // True wind vector is from pointer (tail) to induced wind start
+      const trueWindX = positions.inducedStartX - pointerX;
+      const trueWindY = positions.inducedStartY - pointerY;
       const { speed: newTrueSpeed, angle: newTrueAngle } = cartesianToPolar(
         trueWindX,
         trueWindY
@@ -177,9 +190,9 @@ export function useDragInteraction({
       const boatFrontX = centerX + boatFrontVector.x;
       const boatFrontY = centerY + boatFrontVector.y;
 
-      // Vector from mouse (start/drag point) to boat front (end/arrowhead)
-      const dx = boatFrontX - mouseX;
-      const dy = boatFrontY - mouseY;
+      // Vector from pointer (start/drag point) to boat front (end/arrowhead)
+      const dx = boatFrontX - pointerX;
+      const dy = boatFrontY - pointerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const newSpeed = Math.max(0.1, Math.min(30, dist / scale));
 
@@ -193,7 +206,20 @@ export function useDragInteraction({
     }
   }
 
-  function handleMouseUp() {
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    handlePointerMove(e.clientX, e.clientY);
+  }
+
+  function handleTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
+    // Prevent default to avoid scrolling while dragging
+    e.preventDefault();
+    if (e.touches.length === 1 && dragState.isDragging) {
+      const touch = e.touches[0];
+      handlePointerMove(touch.clientX, touch.clientY);
+    }
+  }
+
+  function handlePointerUp() {
     setDragState({
       isDragging: false,
       dragType: null,
@@ -202,8 +228,17 @@ export function useDragInteraction({
     });
   }
 
+  function handleMouseUp() {
+    handlePointerUp();
+  }
+
+  function handleTouchEnd(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    handlePointerUp();
+  }
+
   function handleMouseLeave() {
-    handleMouseUp();
+    handlePointerUp();
     setIsHoveringHandle(false);
   }
 
@@ -214,5 +249,8 @@ export function useDragInteraction({
     handleMouseMove,
     handleMouseUp,
     handleMouseLeave,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
   };
 }
