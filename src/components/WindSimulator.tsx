@@ -165,26 +165,47 @@ export function WindSimulator() {
     // Draw go-no-go zone BEFORE other arrows so they appear on top
     drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
 
-    drawInducedWind(
+    drawArrow(
       ctx,
       inducedStartX,
       inducedStartY,
       inducedEndX,
-      inducedEndY
+      inducedEndY,
+      COLORS.inducedWind,
+      dragState.isDragging && dragState.dragType === "inducedWind",
+      true,
+      false,
+      false,
+      boatSpeed,
+      "IWS"
     );
-    drawTrueWind(
+    drawArrow(
       ctx,
       trueWindTailX,
       trueWindTailY,
       trueWindHeadX,
-      trueWindHeadY
+      trueWindHeadY,
+      COLORS.trueWind,
+      dragState.isDragging && dragState.dragType === "trueWind",
+      true,
+      false,
+      false,
+      trueWindSpeed,
+      "TWS"
     );
-    drawApparentWind(
+    drawArrow(
       ctx,
       apparentTailX,
       apparentTailY,
       apparentHeadX,
-      apparentHeadY
+      apparentHeadY,
+      COLORS.apparentWind,
+      false,
+      false,
+      false,
+      false,
+      apparentWindSpeed,
+      "AWS"
     );
 
     // Calculate bow directions as shown above
@@ -237,75 +258,6 @@ export function WindSimulator() {
     centerY,
     scale,
   ]);
-
-  function drawTrueWind(
-    ctx: CanvasRenderingContext2D,
-    startX: number,
-    startY: number,
-    endX: number,
-    endY: number
-  ) {
-    drawArrow(
-      ctx,
-      startX,
-      startY,
-      endX,
-      endY,
-      COLORS.trueWind,
-      dragState.isDragging && dragState.dragType === "trueWind",
-      true,
-      false,
-      false,
-      trueWindSpeed,
-      "TWS"
-    );
-  }
-
-  function drawInducedWind(
-    ctx: CanvasRenderingContext2D,
-    startX: number,
-    startY: number,
-    endX: number,
-    endY: number
-  ) {
-    drawArrow(
-      ctx,
-      startX,
-      startY,
-      endX,
-      endY,
-      COLORS.inducedWind,
-      dragState.isDragging && dragState.dragType === "inducedWind",
-      true,
-      false,
-      false,
-      boatSpeed,
-      "IWS"
-    );
-  }
-
-  function drawApparentWind(
-    ctx: CanvasRenderingContext2D,
-    startX: number,
-    startY: number,
-    endX: number,
-    endY: number
-  ) {
-    drawArrow(
-      ctx,
-      startX,
-      startY,
-      endX,
-      endY,
-      COLORS.apparentWind,
-      false,
-      false,
-      false,
-      false,
-      apparentWindSpeed,
-      "AWS"
-    );
-  }
 
   // Zoom functions
   function handleZoomIn() {
