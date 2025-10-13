@@ -237,14 +237,7 @@ export function WindSimulator() {
     const apparentTailY = trueWindTailY;
 
     // Draw vectors (from start to end, with arrowhead at end)
-    drawBoat(
-      ctx,
-      boatX,
-      boatY,
-      boatDirection,
-      zoomLevel,
-      boatImageRef.current
-    );
+    drawBoat(ctx, boatX, boatY, boatDirection, zoomLevel, boatImageRef.current);
 
     // Draw go-no-go zone BEFORE other arrows so they appear on top
     drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);

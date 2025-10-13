@@ -20,7 +20,7 @@ export function drawBoat(
 
   if (boatImage) {
     const svgHeight = 744.09444;
-    const leftBoatWidth = 190;
+    const leftBoatWidth = 220;
     const sourceAspectRatio = leftBoatWidth / svgHeight;
     const targetHeight = 80 * zoomLevel;
     const targetWidth = targetHeight * sourceAspectRatio;
