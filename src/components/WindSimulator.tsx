@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
   cartesianToPolar,
-  degToRad,
   distance,
-  formatAngle,
   normalizeAngle,
   polarToCartesian,
 } from "../utils/windCalculations";
+import {
+  drawBoat,
+  drawGoNoGoZone,
+  drawArrow,
+  drawAngleArc,
+  drawAngleBetweenArrows,
+} from "../utils/canvasDrawing";
+import { COLORS } from "../constants/windSimulator";
 import { DataPanel } from "./DataPanel";
 import { ZoomControls } from "./ZoomControls";
 
@@ -156,10 +162,10 @@ export function WindSimulator() {
     const apparentTailY = trueWindTailY;
 
     // Draw vectors (from start to end, with arrowhead at end)
-    drawBoat(ctx, centerX, centerY, boatDirection);
+    drawBoat(ctx, centerX, centerY, boatDirection, zoomLevel, boatImageRef.current);
 
     // Draw go-no-go zone BEFORE other arrows so they appear on top
-    drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection);
+    drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
 
     drawInducedWind(
       ctx,
@@ -211,10 +217,10 @@ export function WindSimulator() {
           trueWindTailX,
           trueWindTailY,
           trueWindAngle,
-          "#3b82f6"
+          COLORS.trueWind
         );
       } else if (dragState.dragType === "inducedWind") {
-        drawAngleArc(ctx, centerX, centerY, boatDirection, "#10b981");
+        drawAngleArc(ctx, centerX, centerY, boatDirection, COLORS.inducedWind);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,221 +240,7 @@ export function WindSimulator() {
     scale,
   ]);
 
-  // Draw boat
-  function drawBoat(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    angle: number
-  ) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate((angle * Math.PI) / 180);
 
-    if (boatImageRef.current) {
-      // The SVG has two boats side by side
-      // Left boat occupies roughly the first 1/3 of the image width
-      // SVG viewBox is "0 0 460.62992 744.09444"
-      // Left boat is approximately at x: 0-190, y: 0-744
-      const svgHeight = 744.09444;
-      const leftBoatWidth = 190; // Crop to just the left boat
-
-      // Calculate proper aspect ratio
-      const sourceAspectRatio = leftBoatWidth / svgHeight; // ~0.255
-
-      // Scale to fit our desired size while preserving aspect ratio and applying zoom
-      const targetHeight = 80 * zoomLevel; // Apply zoom to boat size
-      const targetWidth = targetHeight * sourceAspectRatio; // Width based on aspect ratio
-
-      // Draw only the left portion of the SVG
-      ctx.drawImage(
-        boatImageRef.current,
-        0,
-        0,
-        leftBoatWidth,
-        svgHeight, // Source rectangle (left boat only)
-        -targetWidth / 2,
-        -targetHeight / 2,
-        targetWidth,
-        targetHeight // Destination
-      );
-    } else {
-      // Fallback: Draw a simple sailboat shape if image not loaded, scaled by zoom
-      ctx.fillStyle = "#000000";
-      ctx.beginPath();
-      ctx.moveTo(0, -20 * zoomLevel);
-      ctx.lineTo(-8 * zoomLevel, 20 * zoomLevel);
-      ctx.lineTo(8 * zoomLevel, 20 * zoomLevel);
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw mast
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2 * zoomLevel;
-      ctx.beginPath();
-      ctx.moveTo(0, -20 * zoomLevel);
-      ctx.lineTo(0, -30 * zoomLevel);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  // Draw go-no-go zone (no-sail zone 45° on each side of boat direction)
-  function drawGoNoGoZone(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    boatDirection: number
-  ) {
-    ctx.save();
-
-    // The no-sail zone extends 45° on each side of the boat direction
-    // Aligned with boat heading (no rotation offset)
-    // Calculate the maximum distance to reach the edge of the canvas
-    const maxDistance = Math.max(
-      canvasSize.width,
-      canvasSize.height,
-      Math.sqrt(
-        canvasSize.width * canvasSize.width +
-          canvasSize.height * canvasSize.height
-      )
-    );
-    const noSailZoneRadius = maxDistance; // Extend to canvas edge
-    const rotatedAngle = normalizeAngle(boatDirection); // Aligned with boat direction
-
-    // Calculate the two boundary angles (45° left and right of rotated angle)
-    const leftBoundary = normalizeAngle(rotatedAngle - 45);
-    const rightBoundary = normalizeAngle(rotatedAngle + 45);
-
-    // Calculate the two outer points of the triangle
-    const leftPoint = polarToCartesian(noSailZoneRadius, leftBoundary);
-    const rightPoint = polarToCartesian(noSailZoneRadius, rightBoundary);
-
-    // Draw filled triangle with semi-transparent red
-    ctx.fillStyle = "rgba(239, 68, 68, 0.15)"; // red with 15% opacity
-    ctx.beginPath();
-    ctx.moveTo(x, y); // Start at boat front (bow)
-    ctx.lineTo(x + leftPoint.x, y + leftPoint.y);
-    ctx.lineTo(x + rightPoint.x, y + rightPoint.y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Draw border lines
-    ctx.strokeStyle = "rgba(239, 68, 68, 0.5)"; // red with 50% opacity
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 4]); // dashed line
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + leftPoint.x, y + leftPoint.y);
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + rightPoint.x, y + rightPoint.y);
-    ctx.stroke();
-    ctx.setLineDash([]); // reset dash
-
-    ctx.restore();
-  }
-
-  function drawArrow(
-    ctx: CanvasRenderingContext2D,
-    startX: number,
-    startY: number,
-    endX: number,
-    endY: number,
-    color: string,
-    isDragging: boolean = false,
-    showDragHandle: boolean = false,
-    arrowheadAtStart: boolean = false,
-    dragHandleAtEnd: boolean = false,
-    speed?: number,
-    abbreviation?: string
-  ) {
-    ctx.save();
-
-    // Draw line with glow if dragging
-    if (isDragging) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 20;
-    }
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = isDragging ? 5 : 3;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-
-    // Draw arrowhead
-    const arrowLength = 15;
-    const dx = endX - startX;
-    const dy = endY - startY;
-    const angle = Math.atan2(dy, dx);
-
-    ctx.fillStyle = color;
-    ctx.beginPath();
-
-    if (arrowheadAtStart) {
-      // Arrowhead at start position (pointing from end to start)
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(
-        startX + arrowLength * Math.cos(angle - Math.PI / 6),
-        startY + arrowLength * Math.sin(angle - Math.PI / 6)
-      );
-      ctx.lineTo(
-        startX + arrowLength * Math.cos(angle + Math.PI / 6),
-        startY + arrowLength * Math.sin(angle + Math.PI / 6)
-      );
-    } else {
-      // Arrowhead at end position (pointing from start to end)
-      ctx.moveTo(endX, endY);
-      ctx.lineTo(
-        endX - arrowLength * Math.cos(angle - Math.PI / 6),
-        endY - arrowLength * Math.sin(angle - Math.PI / 6)
-      );
-      ctx.lineTo(
-        endX - arrowLength * Math.cos(angle + Math.PI / 6),
-        endY - arrowLength * Math.sin(angle + Math.PI / 6)
-      );
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // Draw drag handle (circle at start or end position)
-    if (showDragHandle) {
-      const handleX = dragHandleAtEnd ? endX : startX;
-      const handleY = dragHandleAtEnd ? endY : startY;
-      ctx.fillStyle = isDragging ? "#ffffff" : color;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(handleX, handleY, isDragging ? 12 : 8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    ctx.restore();
-
-    // Draw speed label with abbreviation if provided
-    if (speed !== undefined && abbreviation) {
-      ctx.save();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "14px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-      ctx.shadowBlur = 4;
-
-      const midX = (startX + endX) / 2;
-      const midY = (startY + endY) / 2;
-      const labelOffset = 25;
-      const perpAngle = angle + Math.PI / 2;
-      const labelX = midX + labelOffset * Math.cos(perpAngle);
-      const labelY = midY + labelOffset * Math.sin(perpAngle);
-
-      ctx.fillText(`${speed.toFixed(1)} kt (${abbreviation})`, labelX, labelY);
-
-      ctx.restore();
-    }
-  }
 
   function drawTrueWind(
     ctx: CanvasRenderingContext2D,
@@ -463,7 +255,7 @@ export function WindSimulator() {
       startY,
       endX,
       endY,
-      "#3b82f6",
+      COLORS.trueWind,
       dragState.isDragging && dragState.dragType === "trueWind",
       true,
       false,
@@ -486,7 +278,7 @@ export function WindSimulator() {
       startY,
       endX,
       endY,
-      "#10b981",
+      COLORS.inducedWind,
       dragState.isDragging && dragState.dragType === "inducedWind",
       true,
       false,
@@ -509,7 +301,7 @@ export function WindSimulator() {
       startY,
       endX,
       endY,
-      "#ef4444",
+      COLORS.apparentWind,
       false,
       false,
       false,
@@ -519,76 +311,6 @@ export function WindSimulator() {
     );
   }
 
-  function drawAngleArc(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    angle: number,
-    color: string
-  ) {
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-
-    const radius = 60;
-    const startAngle = -Math.PI / 2; // North (0°)
-    const endAngle = ((angle - 90) * Math.PI) / 180;
-
-    ctx.beginPath();
-    ctx.arc(x, y, radius, startAngle, endAngle);
-    ctx.stroke();
-
-    // Draw angle text
-    ctx.setLineDash([]);
-    ctx.font = "bold 18px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 4;
-    ctx.fillText(`${formatAngle(angle)}°`, x, y - radius - 10);
-
-    ctx.restore();
-  }
-
-  function drawAngleBetweenArrows(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    iwsAngle: number, // calculated above
-    awsAngle: number // calculated above
-  ) {
-    ctx.save();
-    let diff = awsAngle - iwsAngle;
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
-    const absDiff = Math.abs(diff);
-
-    const startRad = degToRad(iwsAngle);
-    const endRad = degToRad(awsAngle);
-    const radius = 38;
-    ctx.strokeStyle = "#fbbf24";
-    ctx.lineWidth = 3;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.arc(x, y, radius, startRad, endRad, diff < 0);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Label: offset right of red arrow
-    const labelRad = degToRad(awsAngle + 24);
-    const labelRadius = radius + 16;
-    const labelX = x + labelRadius * Math.cos(labelRad);
-    const labelY = y + labelRadius * Math.sin(labelRad);
-
-    ctx.font = "bold 16px Inter, sans-serif";
-    ctx.fillStyle = "#fbbf24";
-    ctx.textAlign = "center";
-    ctx.shadowColor = "rgba(0,0,0,0.7)";
-    ctx.shadowBlur = 8;
-    ctx.fillText(`${formatAngle(absDiff)}°`, labelX, labelY);
-    ctx.restore();
-  }
 
   // Mouse event handlers
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
