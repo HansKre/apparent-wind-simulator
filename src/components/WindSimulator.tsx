@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { COLORS } from "../constants/windSimulator";
 import { useDragInteraction } from "../hooks/useDragInteraction";
 import { useGustSimulation } from "../hooks/useGustSimulation";
+import { useLullSimulation } from "../hooks/useLullSimulation";
 import {
   drawAngleArc,
   drawAngleBetweenArrows,
@@ -30,7 +31,11 @@ export function WindSimulator() {
 
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
-  const [autoHeadUp, setAutoHeadUp] = useState(false);
+  const [autoHeadUpGust, setAutoHeadUpGust] = useState(false);
+
+  // Lull simulation state
+  const [lullSpeed, setLullSpeed] = useState(5);
+  const [autoHeadUpLull, setAutoHeadUpLull] = useState(false);
 
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -86,13 +91,27 @@ export function WindSimulator() {
   });
 
   // Gust simulation hook
-  const { isSimulating, simulateGust } = useGustSimulation({
+  const { isSimulating: isSimulatingGust, simulateGust } = useGustSimulation({
     gustSpeed,
     trueWindSpeed,
     trueWindAngle,
     boatSpeed,
     boatDirection,
-    autoHeadUp,
+    autoHeadUp: autoHeadUpGust,
+    setTrueWindSpeed,
+    setTrueWindAngle,
+    setBoatSpeed,
+    setBoatDirection,
+  });
+
+  // Lull simulation hook
+  const { isSimulating: isSimulatingLull, simulateLull } = useLullSimulation({
+    lullSpeed,
+    trueWindSpeed,
+    trueWindAngle,
+    boatSpeed,
+    boatDirection,
+    autoHeadUp: autoHeadUpLull,
     setTrueWindSpeed,
     setTrueWindAngle,
     setBoatSpeed,
@@ -391,11 +410,17 @@ export function WindSimulator() {
 
       <DataPanel
         gustSpeed={gustSpeed}
-        isSimulating={isSimulating}
-        autoHeadUp={autoHeadUp}
+        isSimulatingGust={isSimulatingGust}
+        autoHeadUpGust={autoHeadUpGust}
         onGustSpeedChange={setGustSpeed}
         onSimulateGust={simulateGust}
-        onAutoHeadUpChange={setAutoHeadUp}
+        onAutoHeadUpGustChange={setAutoHeadUpGust}
+        lullSpeed={lullSpeed}
+        isSimulatingLull={isSimulatingLull}
+        autoHeadUpLull={autoHeadUpLull}
+        onLullSpeedChange={setLullSpeed}
+        onSimulateLull={simulateLull}
+        onAutoHeadUpLullChange={setAutoHeadUpLull}
       />
     </div>
   );
