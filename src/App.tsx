@@ -5,13 +5,13 @@ import { WindSimulator } from "./components/WindSimulator";
 export function App() {
   return (
     <div
-      className="h-screen w-full flex flex-col overflow-hidden"
+      className="min-h-screen w-full flex flex-col"
       data-testid="app-container"
     >
       <Header />
 
       <main
-        className="flex-1 flex items-center justify-center overflow-hidden"
+        className="flex-1 flex items-center justify-center"
         data-testid="app-main"
       >
         <div className="w-full h-full" data-testid="main-content">
