@@ -41,8 +41,8 @@ type UseDragInteractionProps = {
   setTrueWindAngle: (angle: number) => void;
   setBoatSpeed: (speed: number) => void;
   setBoatDirection: (direction: number) => void;
-  setBoatOffsetX: (offset: number) => void;
-  setBoatOffsetY: (offset: number) => void;
+  setBoatOffsetX: (offset: number | ((prev: number) => number)) => void;
+  setBoatOffsetY: (offset: number | ((prev: number) => number)) => void;
   setZoomLevel: (zoom: number | ((prev: number) => number)) => void;
 };
 

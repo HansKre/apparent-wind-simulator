@@ -3,6 +3,7 @@ import { COLORS } from "../constants/windSimulator";
 import { useDragInteraction } from "../hooks/useDragInteraction";
 import { useGustSimulation } from "../hooks/useGustSimulation";
 import { useLullSimulation } from "../hooks/useLullSimulation";
+import { useSimulationConfig } from "../hooks/useSimulationConfig";
 import {
   drawAngleArc,
   drawAngleBetweenArrows,
@@ -38,6 +39,9 @@ export function WindSimulator() {
   const [lullSpeed, setLullSpeed] = useState(5);
   const [autoHeadUpLull, setAutoHeadUpLull] = useState(false);
 
+  // Simulation configuration
+  const { simulationConfig, setSimulationConfig } = useSimulationConfig();
+
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +58,12 @@ export function WindSimulator() {
   const [lastSimulationType, setLastSimulationType] = useState<"gust" | "lull">(
     "gust"
   );
+
+  // Click detection state
+  const [mouseDownPos, setMouseDownPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Scale factor for visualization (pixels per knot) with zoom applied
   const scale = 15 * zoomLevel;
@@ -99,13 +109,22 @@ export function WindSimulator() {
   });
 
   // Gust simulation hook
-  const { isSimulating: isSimulatingGust, simulateGust } = useGustSimulation({
+  const {
+    isSimulating: isSimulatingGust,
+    isPaused: isPausedGust,
+    speedMultiplier: speedMultiplierGust,
+    animationStep: animationStepGust,
+    simulateGust,
+    togglePause: togglePauseGust,
+    toggleSpeed: toggleSpeedGust,
+  } = useGustSimulation({
     gustSpeed,
     trueWindSpeed,
     trueWindAngle,
     boatSpeed,
     boatDirection,
     autoHeadUp: autoHeadUpGust,
+    config: simulationConfig,
     setTrueWindSpeed,
     setTrueWindAngle,
     setBoatSpeed,
@@ -113,13 +132,22 @@ export function WindSimulator() {
   });
 
   // Lull simulation hook
-  const { isSimulating: isSimulatingLull, simulateLull } = useLullSimulation({
+  const {
+    isSimulating: isSimulatingLull,
+    isPaused: isPausedLull,
+    speedMultiplier: speedMultiplierLull,
+    animationStep: animationStepLull,
+    simulateLull,
+    togglePause: togglePauseLull,
+    toggleSpeed: toggleSpeedLull,
+  } = useLullSimulation({
     lullSpeed,
     trueWindSpeed,
     trueWindAngle,
     boatSpeed,
     boatDirection,
     autoHeadUp: autoHeadUpLull,
+    config: simulationConfig,
     setTrueWindSpeed,
     setTrueWindAngle,
     setBoatSpeed,
@@ -349,6 +377,42 @@ export function WindSimulator() {
         drawAngleArc(ctx, boatX, boatY, boatDirection, COLORS.inducedWind);
       }
     }
+
+    // Draw animation step in top right
+    const currentAnimationStep =
+      isSimulatingGust ? animationStepGust : animationStepLull;
+    const currentIsPaused = isSimulatingGust ? isPausedGust : isPausedLull;
+
+    if (currentAnimationStep) {
+      const padding = 20;
+      const textX = canvasSize.width - padding;
+      const textY = padding;
+
+      // Set text styles
+      ctx.font = "bold 14px monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "top";
+
+      // Draw phase name
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(currentAnimationStep.phase, textX, textY);
+
+      // Draw timing
+      const timingText = `${currentAnimationStep.elapsed}/${currentAnimationStep.duration}ms`;
+      ctx.fillText(timingText, textX, textY + 20);
+
+      // Draw pause indicator if paused
+      if (currentIsPaused) {
+        ctx.fillStyle = "rgba(255, 193, 7, 0.95)";
+        ctx.fillText("⏸ PAUSED", textX, textY + 40);
+      }
+
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      ctx.textAlign = "left";
+    }
   }, [
     canvasSize,
     trueWindSpeed,
@@ -365,6 +429,12 @@ export function WindSimulator() {
     boatX,
     boatY,
     scale,
+    isSimulatingGust,
+    isSimulatingLull,
+    animationStepGust,
+    animationStepLull,
+    isPausedGust,
+    isPausedLull,
   ]);
 
   // Zoom functions
@@ -378,6 +448,47 @@ export function WindSimulator() {
 
   function handleZoomReset() {
     setZoomLevel(1);
+  }
+
+  // Canvas click handlers to toggle pause/resume
+  function handleCanvasMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    handleMouseDown(e);
+  }
+
+  function handleCanvasMouseUp(e: React.MouseEvent<HTMLCanvasElement>) {
+    // Check if this was a click (not a drag) BEFORE calling handleMouseUp
+    let wasClick = false;
+    if (mouseDownPos) {
+      const dx = e.clientX - mouseDownPos.x;
+      const dy = e.clientY - mouseDownPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If mouse moved less than 5 pixels, treat it as a click
+      wasClick = distance < 5;
+    }
+
+    handleMouseUp();
+
+    // Toggle pause if it was a click during simulation
+    if (wasClick && (isSimulatingGust || isSimulatingLull)) {
+      if (isSimulatingGust) {
+        togglePauseGust();
+      } else if (isSimulatingLull) {
+        togglePauseLull();
+      }
+    }
+
+    setMouseDownPos(null);
+  }
+
+  // Speed toggle button handler
+  function handleSpeedToggle() {
+    if (isSimulatingGust) {
+      toggleSpeedGust();
+    } else if (isSimulatingLull) {
+      toggleSpeedLull();
+    }
   }
 
   return (
@@ -394,9 +505,9 @@ export function WindSimulator() {
           ref={canvasRef}
           width={canvasSize.width}
           height={canvasSize.height}
-          onMouseDown={handleMouseDown}
+          onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+          onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleMouseLeave}
           className={
             dragState.isDragging
@@ -430,6 +541,34 @@ export function WindSimulator() {
           onZoomOut={handleZoomOut}
           onZoomReset={handleZoomReset}
         />
+
+        {/* Speed control button - positioned to left of zoom controls */}
+        <div
+          className="absolute bottom-4 right-16 flex flex-col gap-2"
+          data-testid="speed-controls"
+        >
+          <button
+            onClick={handleSpeedToggle}
+            disabled={!isSimulatingGust && !isSimulatingLull}
+            className={`glass-dark px-3 py-2 rounded-lg text-white font-bold hover:bg-white/20 transition-all shadow-lg ${
+              (isSimulatingGust && speedMultiplierGust === 0.5) ||
+              (isSimulatingLull && speedMultiplierLull === 0.5)
+                ? "bg-amber-600/40"
+                : ""
+            } ${!isSimulatingGust && !isSimulatingLull ? "opacity-50 cursor-not-allowed" : ""}`}
+            data-testid="speed-toggle-button"
+            title={
+              isSimulatingGust || isSimulatingLull
+                ? "Toggle animation speed (0.5x / 1x)"
+                : "Start a simulation to change speed"
+            }
+          >
+            {(isSimulatingGust && speedMultiplierGust === 0.5) ||
+            (isSimulatingLull && speedMultiplierLull === 0.5)
+              ? "0.5x"
+              : "1x"}
+          </button>
+        </div>
       </div>
 
       {/* Show DataPanel on desktop only */}
@@ -455,6 +594,8 @@ export function WindSimulator() {
             simulateLull();
           }}
           onAutoHeadUpLullChange={setAutoHeadUpLull}
+          simulationConfig={simulationConfig}
+          onSimulationConfigChange={setSimulationConfig}
         />
       </div>
 
@@ -483,6 +624,8 @@ export function WindSimulator() {
             simulateLull();
           }}
           onAutoHeadUpLullChange={setAutoHeadUpLull}
+          simulationConfig={simulationConfig}
+          onSimulationConfigChange={setSimulationConfig}
         />
       </div>
     </div>

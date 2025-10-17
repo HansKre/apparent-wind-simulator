@@ -1,5 +1,8 @@
+import { SimulationConfig } from "../types/simulationConfig";
 import { GustSimulationPanel } from "./GustSimulationPanel";
 import { LullSimulationPanel } from "./LullSimulationPanel";
+import { SimulationConfigPanel } from "./SimulationConfigPanel";
+import { useState } from "react";
 
 type Props = {
   isOpen: boolean;
@@ -16,6 +19,8 @@ type Props = {
   onLullSpeedChange: (speed: number) => void;
   onSimulateLull: () => void;
   onAutoHeadUpLullChange: (enabled: boolean) => void;
+  simulationConfig: SimulationConfig;
+  onSimulationConfigChange: (config: SimulationConfig) => void;
 };
 
 function createSimulateHandler(onSimulate: () => void, onClose: () => void) {
@@ -40,7 +45,11 @@ export function SimulationModal({
   onLullSpeedChange,
   onSimulateLull,
   onAutoHeadUpLullChange,
+  simulationConfig,
+  onSimulationConfigChange,
 }: Props) {
+  const [showConfig, setShowConfig] = useState(false);
+
   if (!isOpen) return null;
 
   return (
@@ -68,6 +77,10 @@ export function SimulationModal({
           onLullSpeedChange={onLullSpeedChange}
           onSimulateLull={createSimulateHandler(onSimulateLull, onClose)}
           onAutoHeadUpLullChange={onAutoHeadUpLullChange}
+          simulationConfig={simulationConfig}
+          onSimulationConfigChange={onSimulationConfigChange}
+          showConfig={showConfig}
+          onToggleConfig={() => setShowConfig(!showConfig)}
         />
       </div>
     </div>
@@ -123,6 +136,10 @@ type ModalBodyProps = {
   onLullSpeedChange: (speed: number) => void;
   onSimulateLull: () => void;
   onAutoHeadUpLullChange: (enabled: boolean) => void;
+  simulationConfig: SimulationConfig;
+  onSimulationConfigChange: (config: SimulationConfig) => void;
+  showConfig: boolean;
+  onToggleConfig: () => void;
 };
 
 function ModalBody({
@@ -138,6 +155,10 @@ function ModalBody({
   onLullSpeedChange,
   onSimulateLull,
   onAutoHeadUpLullChange,
+  simulationConfig,
+  onSimulationConfigChange,
+  showConfig,
+  onToggleConfig,
 }: ModalBodyProps) {
   return (
     <div className="p-4 space-y-4" data-testid="modal-body">
@@ -157,6 +178,26 @@ function ModalBody({
         onSimulate={onSimulateLull}
         onAutoHeadUpChange={onAutoHeadUpLullChange}
       />
+      <button
+        onClick={onToggleConfig}
+        className="w-full py-2 px-4 glass rounded-lg text-white/80 hover:text-white font-medium hover:bg-white/10 transition-colors text-sm"
+        data-testid="toggle-config-button"
+      >
+        {showConfig ? "Hide" : "Show"} Simulation Timing Settings
+      </button>
+      {showConfig && (
+        <>
+          <p className="text-white/70 text-xs px-2">
+            These timing settings apply to both gust and lull simulations.
+          </p>
+          <SimulationConfigPanel
+            config={simulationConfig}
+            onChange={onSimulationConfigChange}
+            title="Simulation Timing"
+            color="amber"
+          />
+        </>
+      )}
     </div>
   );
 }
