@@ -8,14 +8,25 @@
   font-weight: 400;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
   background: linear-gradient(135deg, #0c4a6e 0%, #0ea5e9 50%, #38bdf8 100%);
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
 }
 
 @layer utilities {
