@@ -23,8 +23,8 @@ import { ZoomControls } from "./ZoomControls";
 export function WindSimulator() {
   // Wind state
   const [trueWindSpeed, setTrueWindSpeed] = useState(10);
-  const [trueWindAngle, setTrueWindAngle] = useState(270); // 270° = West (horizontal left)
-  const [boatSpeed, setBoatSpeed] = useState(10);
+  const [trueWindAngle, setTrueWindAngle] = useState(250); // 250° = WSW
+  const [boatSpeed, setBoatSpeed] = useState(6);
   const [boatDirection, setBoatDirection] = useState(0); // 0° = North (up)
 
   // Boat position state (offset from canvas center)
