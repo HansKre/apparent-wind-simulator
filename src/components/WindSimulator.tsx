@@ -35,14 +35,14 @@ export function WindSimulator() {
   const [gustSpeed, setGustSpeed] = useState(10);
   const [autoHeadUpGust, setAutoHeadUpGust] = useState(() => {
     const saved = localStorage.getItem("autoHeadUpGust");
-    return saved ? JSON.parse(saved) : false;
+    return saved ? JSON.parse(saved) : true;
   });
 
   // Lull simulation state
   const [lullSpeed, setLullSpeed] = useState(5);
   const [autoHeadUpLull, setAutoHeadUpLull] = useState(() => {
     const saved = localStorage.getItem("autoHeadUpLull");
-    return saved ? JSON.parse(saved) : false;
+    return saved ? JSON.parse(saved) : true;
   });
 
   // Simulation configuration
