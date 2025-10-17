@@ -482,13 +482,11 @@ export function WindSimulator() {
     setMouseDownPos(null);
   }
 
-  // Speed toggle button handler
+  // Speed toggle button handler - always allow toggling
   function handleSpeedToggle() {
-    if (isSimulatingGust) {
-      toggleSpeedGust();
-    } else if (isSimulatingLull) {
-      toggleSpeedLull();
-    }
+    // Always toggle both to keep them in sync
+    toggleSpeedGust();
+    toggleSpeedLull();
   }
 
   return (
@@ -549,22 +547,15 @@ export function WindSimulator() {
         >
           <button
             onClick={handleSpeedToggle}
-            disabled={!isSimulatingGust && !isSimulatingLull}
             className={`glass-dark px-3 py-2 rounded-lg text-white font-bold hover:bg-white/20 transition-all shadow-lg ${
-              (isSimulatingGust && speedMultiplierGust === 0.5) ||
-              (isSimulatingLull && speedMultiplierLull === 0.5)
+              speedMultiplierGust === 0.5 || speedMultiplierLull === 0.5
                 ? "bg-amber-600/40"
                 : ""
-            } ${!isSimulatingGust && !isSimulatingLull ? "opacity-50 cursor-not-allowed" : ""}`}
+            }`}
             data-testid="speed-toggle-button"
-            title={
-              isSimulatingGust || isSimulatingLull
-                ? "Toggle animation speed (0.5x / 1x)"
-                : "Start a simulation to change speed"
-            }
+            title="Toggle animation speed (0.5x / 1x)"
           >
-            {(isSimulatingGust && speedMultiplierGust === 0.5) ||
-            (isSimulatingLull && speedMultiplierLull === 0.5)
+            {speedMultiplierGust === 0.5 || speedMultiplierLull === 0.5
               ? "0.5x"
               : "1x"}
           </button>
