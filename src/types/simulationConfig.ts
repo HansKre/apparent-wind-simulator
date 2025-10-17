@@ -15,10 +15,10 @@ export type SimulationConfig = {
 
 export const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
   windBuildUpDuration: 2000,
-  windDecayDuration: 8000,
+  windDecayDuration: 6000,
   boatSpeedDelay: 500,
   boatSpeedBuildUpDuration: 4000,
   boatSpeedDecayDuration: 8000,
   autoRotationDelay: 800,
-  autoRotationDuration: 2000, // 0 means until end of simulation
+  autoRotationDuration: 0, // 0 means until end of simulation
 };

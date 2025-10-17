@@ -33,11 +33,17 @@ export function WindSimulator() {
 
   // Gust simulation state
   const [gustSpeed, setGustSpeed] = useState(10);
-  const [autoHeadUpGust, setAutoHeadUpGust] = useState(false);
+  const [autoHeadUpGust, setAutoHeadUpGust] = useState(() => {
+    const saved = localStorage.getItem("autoHeadUpGust");
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // Lull simulation state
   const [lullSpeed, setLullSpeed] = useState(5);
-  const [autoHeadUpLull, setAutoHeadUpLull] = useState(false);
+  const [autoHeadUpLull, setAutoHeadUpLull] = useState(() => {
+    const saved = localStorage.getItem("autoHeadUpLull");
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // Simulation configuration
   const { simulationConfig, setSimulationConfig } = useSimulationConfig();
@@ -153,6 +159,15 @@ export function WindSimulator() {
     setBoatSpeed,
     setBoatDirection,
   });
+
+  // Persist auto head up settings
+  useEffect(() => {
+    localStorage.setItem("autoHeadUpGust", JSON.stringify(autoHeadUpGust));
+  }, [autoHeadUpGust]);
+
+  useEffect(() => {
+    localStorage.setItem("autoHeadUpLull", JSON.stringify(autoHeadUpLull));
+  }, [autoHeadUpLull]);
 
   // Load boat SVG
   useEffect(() => {
