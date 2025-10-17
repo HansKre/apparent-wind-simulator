@@ -4,7 +4,10 @@ import { WindSimulator } from "./components/WindSimulator";
 
 export function App() {
   return (
-    <div className="h-full w-full flex flex-col" data-testid="app-container">
+    <div
+      className="min-h-screen w-full flex flex-col"
+      data-testid="app-container"
+    >
       <Header />
 
       <main
