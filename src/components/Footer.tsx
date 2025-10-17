@@ -5,7 +5,7 @@ export function Footer() {
       data-testid="app-footer"
     >
       <div className="container mx-auto px-4">
-        <p className="text-white/60 text-center text-sm">
+        <p className="hidden md:block text-white/60 text-center text-sm">
           Drag the wind arrows to see real-time apparent wind calculations
         </p>
       </div>

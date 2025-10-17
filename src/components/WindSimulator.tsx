@@ -511,7 +511,7 @@ export function WindSimulator() {
     >
       <div
         ref={containerRef}
-        className="flex-1 glass-dark rounded-2xl shadow-2xl overflow-hidden relative min-h-[450px]"
+        className="flex-1 glass-dark rounded-2xl shadow-2xl overflow-hidden relative min-h-[300px] md:min-h-[450px]"
         data-testid="canvas-container"
       >
         <canvas
