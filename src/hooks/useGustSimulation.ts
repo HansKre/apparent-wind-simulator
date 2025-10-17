@@ -227,70 +227,80 @@ export function useGustSimulation({
 
       // Calculate new boat direction if auto head-up is enabled
       if (autoHeadUp) {
-        // Calculate the target boat direction (45° angle from apparent wind)
-        let targetBoatDir = capturedBoatDirection;
-
         if (elapsed >= headingChangeDelay) {
-          // Find the target boat direction that gives us 45° angle
-          let currentBoatDir = previousBoatDirection;
-
-          for (let i = 0; i < 20; i++) {
-            const trueWindVector = polarToCartesian(
-              currentTrueWindSpeed,
-              capturedWindAngle
-            );
-            const inducedWindVector = polarToCartesian(
-              currentBoatSpeed,
-              normalizeAngle(currentBoatDir + 180)
-            );
-
-            const apparentWindX = trueWindVector.x + inducedWindVector.x;
-            const apparentWindY = trueWindVector.y + inducedWindVector.y;
-            const apparentPolar = cartesianToPolar(apparentWindX, apparentWindY);
-            const apparentWindAngle = apparentPolar.angle;
-
-            // Calculate current angle between apparent wind and induced wind
-            const inducedWindAngle = normalizeAngle(currentBoatDir + 180);
-            let angleDiff = apparentWindAngle - inducedWindAngle;
-
-            // Normalize angle difference to -180 to 180 range
-            if (angleDiff > 180) angleDiff -= 360;
-            if (angleDiff < -180) angleDiff += 360;
-
-            // Target is 45° - adjust boat direction to reach it
-            const error = angleDiff - 45;
-            if (Math.abs(error) < 0.5) break; // Close enough
-
-            currentBoatDir = normalizeAngle(currentBoatDir + error * 0.4);
-          }
-
-          targetBoatDir = currentBoatDir;
-        }
-
-        // Smoothly interpolate from previous to target direction
-        let rotationProgress = 0;
-        if (elapsed >= headingChangeDelay) {
-          // Calculate how far into the animation we are after the delay
+          // Calculate rotation progress for smooth transitions
           const timeSinceDelay = elapsed - headingChangeDelay;
           const rotationDuration =
             config.autoRotationDuration > 0
               ? config.autoRotationDuration
               : totalDuration - headingChangeDelay;
-          rotationProgress = Math.min(1, timeSinceDelay / rotationDuration);
+          const rotationProgress = Math.min(1, timeSinceDelay / rotationDuration);
+
+          // During rotation period, continuously calculate target to maintain 45°
+          if (rotationProgress < 1 || config.autoRotationDuration === 0) {
+            // Iteratively find the boat direction that gives us 45° angle with current conditions
+            let targetBoatDir = previousBoatDirection;
+
+            for (let i = 0; i < 20; i++) {
+              const trueWindVector = polarToCartesian(
+                currentTrueWindSpeed,
+                capturedWindAngle
+              );
+              const inducedWindVector = polarToCartesian(
+                currentBoatSpeed,
+                normalizeAngle(targetBoatDir + 180)
+              );
+
+              const apparentWindX = trueWindVector.x + inducedWindVector.x;
+              const apparentWindY = trueWindVector.y + inducedWindVector.y;
+              const apparentPolar = cartesianToPolar(
+                apparentWindX,
+                apparentWindY
+              );
+              const apparentWindAngle = apparentPolar.angle;
+
+              // Calculate current angle between apparent wind and induced wind
+              const inducedWindAngle = normalizeAngle(targetBoatDir + 180);
+              let angleDiff = apparentWindAngle - inducedWindAngle;
+
+              // Normalize angle difference to -180 to 180 range
+              if (angleDiff > 180) angleDiff -= 360;
+              if (angleDiff < -180) angleDiff += 360;
+
+              // Target is 45° - adjust boat direction to reach it
+              const error = angleDiff - 45;
+              if (Math.abs(error) < 0.5) break; // Close enough
+
+              targetBoatDir = normalizeAngle(targetBoatDir + error * 0.4);
+            }
+
+            // Smoothly approach the target with damping
+            let angleDelta = targetBoatDir - previousBoatDirection;
+            // Normalize to shortest path
+            if (angleDelta > 180) angleDelta -= 360;
+            if (angleDelta < -180) angleDelta += 360;
+
+            // Use smooth easing for rotation - faster at start, slower near target
+            const easedProgress = easeOutCubic(
+              Math.min(1, rotationProgress * 1.5)
+            );
+            const smoothingFactor = 0.15 + easedProgress * 0.15; // 0.15 to 0.3
+
+            const currentDirection = normalizeAngle(
+              previousBoatDirection + angleDelta * smoothingFactor
+            );
+
+            previousBoatDirection = currentDirection;
+            setBoatDirection(currentDirection);
+          } else {
+            // After rotation duration, keep the last direction
+            setBoatDirection(previousBoatDirection);
+          }
+        } else {
+          // Before rotation delay, maintain initial direction
+          setBoatDirection(capturedBoatDirection);
+          previousBoatDirection = capturedBoatDirection;
         }
-
-        // Interpolate between captured and target direction
-        let angleDelta = targetBoatDir - capturedBoatDirection;
-        // Normalize to shortest path (-180 to 180)
-        if (angleDelta > 180) angleDelta -= 360;
-        if (angleDelta < -180) angleDelta += 360;
-
-        const currentDirection = normalizeAngle(
-          capturedBoatDirection + angleDelta * rotationProgress
-        );
-
-        previousBoatDirection = currentDirection;
-        setBoatDirection(currentDirection);
       } else {
         setBoatDirection(capturedBoatDirection);
         previousBoatDirection = capturedBoatDirection;

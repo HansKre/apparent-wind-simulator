@@ -19,6 +19,6 @@ export const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
   boatSpeedDelay: 500,
   boatSpeedBuildUpDuration: 4000,
   boatSpeedDecayDuration: 8000,
-  autoRotationDelay: 800,
+  autoRotationDelay: 0,
   autoRotationDuration: 0, // 0 means until end of simulation
 };
