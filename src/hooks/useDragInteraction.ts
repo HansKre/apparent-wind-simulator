@@ -15,6 +15,7 @@ type DragState = {
   startBoatSpeed?: number;
   startBoatOffsetX?: number;
   startBoatOffsetY?: number;
+  hasReachedZero?: boolean;
 };
 
 type PinchState = {
@@ -165,6 +166,7 @@ export function useDragInteraction({
         startY: pointerY,
         startBoatDirection: boatDirection,
         startBoatSpeed: boatSpeed,
+        hasReachedZero: false,
       });
       return true;
     }
@@ -283,15 +285,32 @@ export function useDragInteraction({
       const dx = boatFrontX - pointerX;
       const dy = boatFrontY - pointerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const newSpeed = Math.max(0.1, Math.min(30, dist / scale));
 
-      // Calculate the angle the arrow points (from start to end)
-      const { angle: arrowAngle } = cartesianToPolar(dx, dy);
+      // The arrow length (from pointer to boat front) represents the boat speed
+      let newSpeed = Math.max(0, Math.min(30, dist / scale));
+
+      // Once speed reaches zero during a drag, keep it at zero
+      // This prevents the speed from bouncing back when dragging through the boat
+      if (dragState.hasReachedZero) {
+        newSpeed = 0;
+      } else if (newSpeed === 0) {
+        // Mark that we've reached zero during this drag
+        setDragState((prev) => ({ ...prev, hasReachedZero: true }));
+      }
 
       setBoatSpeed(newSpeed);
-      // The arrow points in direction arrowAngle (opposite to boat movement)
-      // So boat moves in the opposite direction
-      setBoatDirection(normalizeAngle(arrowAngle + 180));
+
+      // Only update boat direction if the speed is >= 3 knots
+      // Below 3 knots, dragging only affects the arrow length (speed), not direction
+      // This prevents the boat from flipping and allows smooth reduction to zero
+      if (newSpeed >= 3) {
+        // Calculate the angle the arrow points (from start to end)
+        const { angle: arrowAngle } = cartesianToPolar(dx, dy);
+        // The arrow points in direction arrowAngle (opposite to boat movement)
+        // So boat moves in the opposite direction
+        setBoatDirection(normalizeAngle(arrowAngle + 180));
+      }
+      // If speed < 3 knots, we keep the current boat direction
     } else if (dragState.dragType === "boat") {
       // When dragging the boat, move it by the delta from the start position
       const deltaX = pointerX - dragState.startX;
