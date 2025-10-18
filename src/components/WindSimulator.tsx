@@ -315,7 +315,11 @@ export function WindSimulator() {
     // Draw go-no-go zone BEFORE other arrows so they appear on top
     drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
 
-    drawArrow(
+    // Draw arrows with label collision detection
+    // Track label positions to prevent overlap
+    const labelPositions: Array<{x: number; y: number; width: number; height: number}> = [];
+
+    const iwsLabel = drawArrow(
       ctx,
       inducedStartX,
       inducedStartY,
@@ -327,9 +331,12 @@ export function WindSimulator() {
       false,
       false,
       boatSpeed,
-      "IWS"
+      "IWS",
+      labelPositions
     );
-    drawArrow(
+    if (iwsLabel) labelPositions.push(iwsLabel);
+
+    const twsLabel = drawArrow(
       ctx,
       trueWindTailX,
       trueWindTailY,
@@ -341,9 +348,12 @@ export function WindSimulator() {
       false,
       false,
       trueWindSpeed,
-      "TWS"
+      "TWS",
+      labelPositions
     );
-    drawArrow(
+    if (twsLabel) labelPositions.push(twsLabel);
+
+    const awsLabel = drawArrow(
       ctx,
       apparentTailX,
       apparentTailY,
@@ -355,8 +365,10 @@ export function WindSimulator() {
       false,
       false,
       apparentWindSpeed,
-      "AWS"
+      "AWS",
+      labelPositions
     );
+    if (awsLabel) labelPositions.push(awsLabel);
 
     // Calculate bow directions as shown above
     const iwsAngleAtBow =

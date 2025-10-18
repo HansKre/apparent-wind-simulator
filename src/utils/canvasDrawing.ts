@@ -101,6 +101,13 @@ export function drawGoNoGoZone(
   ctx.restore();
 }
 
+export type LabelPosition = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   startX: number,
@@ -113,8 +120,9 @@ export function drawArrow(
   arrowheadAtStart: boolean = false,
   dragHandleAtEnd: boolean = false,
   speed?: number,
-  abbreviation?: string
-) {
+  abbreviation?: string,
+  existingLabels?: LabelPosition[]
+): LabelPosition | null {
   ctx.save();
 
   if (isDragging) {
@@ -185,15 +193,61 @@ export function drawArrow(
 
     const midX = (startX + endX) / 2;
     const midY = (startY + endY) / 2;
-    const labelOffset = 25;
-    const perpAngle = angle + Math.PI / 2;
-    const labelX = midX + labelOffset * Math.cos(perpAngle);
-    const labelY = midY + labelOffset * Math.sin(perpAngle);
+    const labelText = `${speed.toFixed(1)} kt (${abbreviation})`;
 
-    ctx.fillText(`${speed.toFixed(1)} kt (${abbreviation})`, labelX, labelY);
+    // Measure label dimensions
+    const metrics = ctx.measureText(labelText);
+    const labelWidth = metrics.width + 10; // Add padding
+    const labelHeight = 20; // Approximate height
+
+    // Try different label positions to avoid overlap
+    const labelOffsets = [25, -25, 40, -40, 55, -55]; // Try both sides and further away
+    let labelX = 0;
+    let labelY = 0;
+    let foundPosition = false;
+
+    for (const offset of labelOffsets) {
+      const perpAngle = angle + Math.PI / 2;
+      const testX = midX + offset * Math.cos(perpAngle);
+      const testY = midY + offset * Math.sin(perpAngle);
+
+      // Check if this position overlaps with any existing labels
+      const overlaps = existingLabels?.some(existing => {
+        const dx = Math.abs(testX - existing.x);
+        const dy = Math.abs(testY - existing.y);
+        return dx < (labelWidth + existing.width) / 2 &&
+               dy < (labelHeight + existing.height) / 2;
+      });
+
+      if (!overlaps) {
+        labelX = testX;
+        labelY = testY;
+        foundPosition = true;
+        break;
+      }
+    }
+
+    // If no non-overlapping position found, use the default
+    if (!foundPosition) {
+      const perpAngle = angle + Math.PI / 2;
+      labelX = midX + 25 * Math.cos(perpAngle);
+      labelY = midY + 25 * Math.sin(perpAngle);
+    }
+
+    ctx.fillText(labelText, labelX, labelY);
 
     ctx.restore();
+
+    // Return the label position for future collision detection
+    return {
+      x: labelX,
+      y: labelY,
+      width: labelWidth,
+      height: labelHeight
+    };
   }
+
+  return null;
 }
 
 export function drawAngleArc(
