@@ -595,12 +595,12 @@ export function WindSimulator() {
 
         {/* Speed control button - positioned to left of zoom controls */}
         <div
-          className="absolute bottom-4 right-16 flex flex-col gap-2"
+          className="absolute bottom-4 right-[4.5rem] flex flex-col gap-2"
           data-testid="speed-controls"
         >
           <button
             onClick={handleSpeedToggle}
-            className={`glass-dark px-3 py-2 rounded-lg text-white font-bold hover:bg-white/20 transition-all shadow-lg ${
+            className={`w-12 h-12 glass-dark rounded-lg flex items-center justify-center text-white font-bold text-xs hover:bg-white/20 transition-all shadow-lg ${
               speedMultiplierGust === 0.5 || speedMultiplierLull === 0.5
                 ? "bg-amber-600/40"
                 : ""
