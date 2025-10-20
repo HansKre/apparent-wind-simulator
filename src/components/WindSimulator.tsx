@@ -381,14 +381,16 @@ export function WindSimulator() {
         180) /
       Math.PI;
 
-    // Now call the arc drawing function with these values
-    drawAngleBetweenArrows(
+    // Draw the angle arc with collision detection
+    const angleLabel = drawAngleBetweenArrows(
       ctx,
       boatFrontX,
       boatFrontY,
       iwsAngleAtBow,
-      awsAngleAtBow
+      awsAngleAtBow,
+      labelPositions
     );
+    if (angleLabel) labelPositions.push(angleLabel);
 
     // Draw angle arc if dragging
     if (dragState.isDragging) {

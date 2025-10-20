@@ -195,28 +195,54 @@ export function drawArrow(
     const midY = (startY + endY) / 2;
     const labelText = `${speed.toFixed(1)} kt (${abbreviation})`;
 
-    // Measure label dimensions
+    // Measure label dimensions with extra padding to prevent overlap
     const metrics = ctx.measureText(labelText);
-    const labelWidth = metrics.width + 10; // Add padding
-    const labelHeight = 20; // Approximate height
+    const labelWidth = metrics.width + 50; // Extra padding for safety
+    const labelHeight = 50; // Generous height estimate
+
+    // Aggressive spacing buffer to ensure labels never touch
+    const SPACING_BUFFER = 30;
 
     // Try different label positions to avoid overlap
-    const labelOffsets = [25, -25, 40, -40, 55, -55]; // Try both sides and further away
+    // Start with closer positions, then move progressively further away
+    const labelOffsets = [
+      { offset: 40, angleOffset: Math.PI / 2 },       // Right perpendicular
+      { offset: 40, angleOffset: -Math.PI / 2 },      // Left perpendicular
+      { offset: 40, angleOffset: 0 },                 // Along arrow direction
+      { offset: 40, angleOffset: Math.PI },           // Opposite arrow direction
+      { offset: 60, angleOffset: Math.PI / 2 },       // Further right
+      { offset: 60, angleOffset: -Math.PI / 2 },      // Further left
+      { offset: 60, angleOffset: Math.PI / 4 },       // Diagonal right
+      { offset: 60, angleOffset: -Math.PI / 4 },      // Diagonal left
+      { offset: 60, angleOffset: 3 * Math.PI / 4 },   // Diagonal back-right
+      { offset: 60, angleOffset: -3 * Math.PI / 4 },  // Diagonal back-left
+      { offset: 80, angleOffset: Math.PI / 2 },       // Far right
+      { offset: 80, angleOffset: -Math.PI / 2 },      // Far left
+      { offset: 80, angleOffset: Math.PI / 3 },       // 60° right
+      { offset: 80, angleOffset: -Math.PI / 3 },      // 60° left
+      { offset: 100, angleOffset: Math.PI / 2 },      // Very far right
+      { offset: 100, angleOffset: -Math.PI / 2 },     // Very far left
+      { offset: 100, angleOffset: 0 },                // Very far forward
+      { offset: 100, angleOffset: Math.PI },          // Very far back
+      { offset: 120, angleOffset: Math.PI / 2 },      // Extremely far right
+      { offset: 120, angleOffset: -Math.PI / 2 },     // Extremely far left
+    ];
+
     let labelX = 0;
     let labelY = 0;
     let foundPosition = false;
 
-    for (const offset of labelOffsets) {
-      const perpAngle = angle + Math.PI / 2;
-      const testX = midX + offset * Math.cos(perpAngle);
-      const testY = midY + offset * Math.sin(perpAngle);
+    for (const { offset, angleOffset } of labelOffsets) {
+      const testAngle = angle + angleOffset;
+      const testX = midX + offset * Math.cos(testAngle);
+      const testY = midY + offset * Math.sin(testAngle);
 
       // Check if this position overlaps with any existing labels
       const overlaps = existingLabels?.some(existing => {
         const dx = Math.abs(testX - existing.x);
         const dy = Math.abs(testY - existing.y);
-        return dx < (labelWidth + existing.width) / 2 &&
-               dy < (labelHeight + existing.height) / 2;
+        return dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
+               dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER;
       });
 
       if (!overlaps) {
@@ -227,11 +253,11 @@ export function drawArrow(
       }
     }
 
-    // If no non-overlapping position found, use the default
+    // If no non-overlapping position found, use a very far offset
     if (!foundPosition) {
       const perpAngle = angle + Math.PI / 2;
-      labelX = midX + 25 * Math.cos(perpAngle);
-      labelY = midY + 25 * Math.sin(perpAngle);
+      labelX = midX + 150 * Math.cos(perpAngle);
+      labelY = midY + 150 * Math.sin(perpAngle);
     }
 
     ctx.fillText(labelText, labelX, labelY);
@@ -289,8 +315,9 @@ export function drawAngleBetweenArrows(
   x: number,
   y: number,
   iwsAngle: number,
-  awsAngle: number
-) {
+  awsAngle: number,
+  existingLabels?: LabelPosition[]
+): LabelPosition | null {
   ctx.save();
   let diff = awsAngle - iwsAngle;
   while (diff > 180) diff -= 360;
@@ -315,16 +342,67 @@ export function drawAngleBetweenArrows(
   ctx.stroke();
   ctx.setLineDash([]);
 
-  const labelRad = degToRad(awsAngle + 24);
-  const labelRadius = CANVAS_CONFIG.angleBetweenArrowsRadius + 16;
-  const labelX = x + labelRadius * Math.cos(labelRad);
-  const labelY = y + labelRadius * Math.sin(labelRad);
-
+  // Calculate label position with collision avoidance
+  const labelText = `${formatAngle(absDiff)}°`;
   ctx.font = "bold 16px Inter, sans-serif";
+
+  const metrics = ctx.measureText(labelText);
+  const labelWidth = metrics.width + 50;
+  const labelHeight = 50;
+
+  // Try different positions around the arc - more positions, further away
+  const angleOffsets = [24, 36, 12, 48, 0, -12, -24, 60, -36, 72, -48, 90, -60];
+  const radiusOffsets = [16, 26, 36, 46, 56, 66, 76, 6];
+
+  let labelX = 0;
+  let labelY = 0;
+  let foundPosition = false;
+  const SPACING_BUFFER = 30;
+
+  for (const angleOffset of angleOffsets) {
+    for (const radiusOffset of radiusOffsets) {
+      const labelRad = degToRad(awsAngle + angleOffset);
+      const labelRadius = CANVAS_CONFIG.angleBetweenArrowsRadius + radiusOffset;
+      const testX = x + labelRadius * Math.cos(labelRad);
+      const testY = y + labelRadius * Math.sin(labelRad);
+
+      // Check for overlaps
+      const overlaps = existingLabels?.some(existing => {
+        const dx = Math.abs(testX - existing.x);
+        const dy = Math.abs(testY - existing.y);
+        return dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
+               dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER;
+      });
+
+      if (!overlaps) {
+        labelX = testX;
+        labelY = testY;
+        foundPosition = true;
+        break;
+      }
+    }
+    if (foundPosition) break;
+  }
+
+  // Fallback position if no good spot found
+  if (!foundPosition) {
+    const labelRad = degToRad(awsAngle + 24);
+    const labelRadius = CANVAS_CONFIG.angleBetweenArrowsRadius + 90;
+    labelX = x + labelRadius * Math.cos(labelRad);
+    labelY = y + labelRadius * Math.sin(labelRad);
+  }
+
   ctx.fillStyle = COLORS.angleArc;
   ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.7)";
   ctx.shadowBlur = 8;
-  ctx.fillText(`${formatAngle(absDiff)}°`, labelX, labelY);
+  ctx.fillText(labelText, labelX, labelY);
   ctx.restore();
+
+  return {
+    x: labelX,
+    y: labelY,
+    width: labelWidth,
+    height: labelHeight
+  };
 }
