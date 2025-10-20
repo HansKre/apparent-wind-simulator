@@ -21,6 +21,7 @@ type Props = {
   onAutoHeadUpLullChange: (enabled: boolean) => void;
   simulationConfig: SimulationConfig;
   onSimulationConfigChange: (config: SimulationConfig) => void;
+  onReset: () => void;
 };
 
 function createSimulateHandler(onSimulate: () => void, onClose: () => void) {
@@ -47,6 +48,7 @@ export function SimulationModal({
   onAutoHeadUpLullChange,
   simulationConfig,
   onSimulationConfigChange,
+  onReset,
 }: Props) {
   const [showConfig, setShowConfig] = useState(false);
 
@@ -81,6 +83,7 @@ export function SimulationModal({
           onSimulationConfigChange={onSimulationConfigChange}
           showConfig={showConfig}
           onToggleConfig={() => setShowConfig(!showConfig)}
+          onReset={onReset}
         />
       </div>
     </div>
@@ -140,6 +143,7 @@ type ModalBodyProps = {
   onSimulationConfigChange: (config: SimulationConfig) => void;
   showConfig: boolean;
   onToggleConfig: () => void;
+  onReset: () => void;
 };
 
 function ModalBody({
@@ -159,6 +163,7 @@ function ModalBody({
   onSimulationConfigChange,
   showConfig,
   onToggleConfig,
+  onReset,
 }: ModalBodyProps) {
   return (
     <div className="p-4 space-y-4" data-testid="modal-body">
@@ -198,6 +203,27 @@ function ModalBody({
           />
         </>
       )}
+      <button
+        onClick={onReset}
+        className="w-full py-3 px-4 glass rounded-lg text-white/80 hover:text-white font-medium hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+        data-testid="modal-reset-button"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        Reset to Defaults
+      </button>
     </div>
   );
 }

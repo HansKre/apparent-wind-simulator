@@ -479,6 +479,30 @@ export function WindSimulator() {
     setZoomLevel(1);
   }
 
+  // Reset all values to initial state
+  function handleReset() {
+    setTrueWindSpeed(10);
+    setTrueWindAngle(250);
+    setBoatSpeed(6);
+    setBoatDirection(0);
+    setBoatOffsetX(0);
+    setBoatOffsetY(0);
+    setZoomLevel(1);
+    setGustSpeed(10);
+    setLullSpeed(5);
+    setAutoHeadUpGust(true);
+    setAutoHeadUpLull(true);
+    setSimulationConfig({
+      windBuildUpDuration: 2000,
+      windDecayDuration: 6000,
+      boatSpeedDelay: 500,
+      boatSpeedBuildUpDuration: 4000,
+      boatSpeedDecayDuration: 8000,
+      autoRotationDelay: 0,
+      autoRotationDuration: 0,
+    });
+  }
+
   // Canvas click handlers to toggle pause/resume
   function handleCanvasMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
     setMouseDownPos({ x: e.clientX, y: e.clientY });
@@ -616,6 +640,7 @@ export function WindSimulator() {
           onAutoHeadUpLullChange={setAutoHeadUpLull}
           simulationConfig={simulationConfig}
           onSimulationConfigChange={setSimulationConfig}
+          onReset={handleReset}
         />
       </div>
 
@@ -646,6 +671,7 @@ export function WindSimulator() {
           onAutoHeadUpLullChange={setAutoHeadUpLull}
           simulationConfig={simulationConfig}
           onSimulationConfigChange={setSimulationConfig}
+          onReset={handleReset}
         />
       </div>
     </div>
