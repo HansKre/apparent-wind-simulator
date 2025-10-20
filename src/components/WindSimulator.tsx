@@ -317,7 +317,12 @@ export function WindSimulator() {
 
     // Draw arrows with label collision detection
     // Track label positions to prevent overlap
-    const labelPositions: Array<{x: number; y: number; width: number; height: number}> = [];
+    const labelPositions: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }> = [];
 
     const iwsLabel = drawArrow(
       ctx,
@@ -408,8 +413,9 @@ export function WindSimulator() {
     }
 
     // Draw animation step in top right
-    const currentAnimationStep =
-      isSimulatingGust ? animationStepGust : animationStepLull;
+    const currentAnimationStep = isSimulatingGust
+      ? animationStepGust
+      : animationStepLull;
     const currentIsPaused = isSimulatingGust ? isPausedGust : isPausedLull;
 
     if (currentAnimationStep) {
@@ -584,6 +590,8 @@ export function WindSimulator() {
           }}
           onOpenSettings={() => setIsModalOpen(true)}
           isSimulating={isSimulatingGust || isSimulatingLull}
+          speedMultiplier={speedMultiplierGust}
+          onSpeedToggle={handleSpeedToggle}
         />
 
         <ZoomControls
@@ -593,10 +601,10 @@ export function WindSimulator() {
           onZoomReset={handleZoomReset}
         />
 
-        {/* Speed control button - positioned to left of zoom controls */}
+        {/* Speed control button - desktop only, positioned left of zoom controls */}
         <div
-          className="absolute bottom-4 right-[4.5rem] flex flex-col gap-2"
-          data-testid="speed-controls"
+          className="hidden lg:flex absolute bottom-4 right-[4.5rem] flex-col gap-2"
+          data-testid="speed-controls-desktop"
         >
           <button
             onClick={handleSpeedToggle}
@@ -682,12 +690,16 @@ type SimulationButtonsProps = {
   onSimulate: () => void;
   onOpenSettings: () => void;
   isSimulating: boolean;
+  speedMultiplier: number;
+  onSpeedToggle: () => void;
 };
 
 function SimulationButtons({
   onSimulate,
   onOpenSettings,
   isSimulating,
+  speedMultiplier,
+  onSpeedToggle,
 }: SimulationButtonsProps) {
   return (
     <div
@@ -727,6 +739,16 @@ function SimulationButtons({
             d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
           />
         </svg>
+      </button>
+      <button
+        onClick={onSpeedToggle}
+        className={`w-12 h-12 glass-dark rounded-lg flex items-center justify-center text-white font-bold text-xs hover:bg-white/20 transition-all shadow-lg ${
+          speedMultiplier === 0.5 ? "bg-amber-600/40" : ""
+        }`}
+        data-testid="speed-toggle-button-mobile"
+        title="Toggle animation speed (0.5x / 1x)"
+      >
+        {speedMultiplier === 0.5 ? "0.5x" : "1x"}
       </button>
     </div>
   );
