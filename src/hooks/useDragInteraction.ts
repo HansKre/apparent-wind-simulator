@@ -16,6 +16,7 @@ type DragState = {
   startBoatOffsetX?: number;
   startBoatOffsetY?: number;
   hasReachedZero?: boolean;
+  coupledRatio?: number;
 };
 
 type PinchState = {
@@ -38,6 +39,7 @@ type UseDragInteractionProps = {
   boatSpeed: number;
   trueWindSpeed: number;
   trueWindAngle: number;
+  coupledMode: boolean;
   setTrueWindSpeed: (speed: number) => void;
   setTrueWindAngle: (angle: number) => void;
   setBoatSpeed: (speed: number) => void;
@@ -59,6 +61,7 @@ export function useDragInteraction({
   boatSpeed,
   trueWindSpeed,
   trueWindAngle,
+  coupledMode,
   setTrueWindSpeed,
   setTrueWindAngle,
   setBoatSpeed,
@@ -151,6 +154,7 @@ export function useDragInteraction({
         dragType: "trueWind",
         startX: pointerX,
         startY: pointerY,
+        coupledRatio: trueWindSpeed > 0 ? boatSpeed / trueWindSpeed : 0,
       });
       return true;
     }
@@ -274,6 +278,14 @@ export function useDragInteraction({
 
       setTrueWindSpeed(clampedSpeed);
       setTrueWindAngle(newTrueAngle);
+
+      if (coupledMode && dragState.coupledRatio !== undefined) {
+        const newBoatSpeed = Math.max(
+          0,
+          Math.min(30, clampedSpeed * dragState.coupledRatio)
+        );
+        setBoatSpeed(newBoatSpeed);
+      }
     } else if (dragState.dragType === "inducedWind") {
       // When dragging induced wind start (the draggable end away from boat)
       const boatFrontOffset = 40 * zoomLevel;

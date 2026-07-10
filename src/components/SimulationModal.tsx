@@ -1,4 +1,5 @@
 import { SimulationConfig } from "../types/simulationConfig";
+import { CoupledModeToggle } from "./CoupledModeToggle";
 import { GustSimulationPanel } from "./GustSimulationPanel";
 import { LullSimulationPanel } from "./LullSimulationPanel";
 import { SimulationConfigPanel } from "./SimulationConfigPanel";
@@ -21,6 +22,8 @@ type Props = {
   onAutoHeadUpLullChange: (enabled: boolean) => void;
   simulationConfig: SimulationConfig;
   onSimulationConfigChange: (config: SimulationConfig) => void;
+  coupledMode: boolean;
+  onCoupledModeChange: (enabled: boolean) => void;
   onReset: () => void;
 };
 
@@ -48,6 +51,8 @@ export function SimulationModal({
   onAutoHeadUpLullChange,
   simulationConfig,
   onSimulationConfigChange,
+  coupledMode,
+  onCoupledModeChange,
   onReset,
 }: Props) {
   const [showConfig, setShowConfig] = useState(false);
@@ -81,6 +86,8 @@ export function SimulationModal({
           onAutoHeadUpLullChange={onAutoHeadUpLullChange}
           simulationConfig={simulationConfig}
           onSimulationConfigChange={onSimulationConfigChange}
+          coupledMode={coupledMode}
+          onCoupledModeChange={onCoupledModeChange}
           showConfig={showConfig}
           onToggleConfig={() => setShowConfig(!showConfig)}
           onReset={onReset}
@@ -141,6 +148,8 @@ type ModalBodyProps = {
   onAutoHeadUpLullChange: (enabled: boolean) => void;
   simulationConfig: SimulationConfig;
   onSimulationConfigChange: (config: SimulationConfig) => void;
+  coupledMode: boolean;
+  onCoupledModeChange: (enabled: boolean) => void;
   showConfig: boolean;
   onToggleConfig: () => void;
   onReset: () => void;
@@ -161,6 +170,8 @@ function ModalBody({
   onAutoHeadUpLullChange,
   simulationConfig,
   onSimulationConfigChange,
+  coupledMode,
+  onCoupledModeChange,
   showConfig,
   onToggleConfig,
   onReset,
@@ -182,6 +193,10 @@ function ModalBody({
         onLullSpeedChange={onLullSpeedChange}
         onSimulate={onSimulateLull}
         onAutoHeadUpChange={onAutoHeadUpLullChange}
+      />
+      <CoupledModeToggle
+        enabled={coupledMode}
+        onToggle={onCoupledModeChange}
       />
       <button
         onClick={onToggleConfig}

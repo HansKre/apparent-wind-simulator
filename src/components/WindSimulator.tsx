@@ -27,6 +27,12 @@ export function WindSimulator() {
   const [boatSpeed, setBoatSpeed] = useState(6);
   const [boatDirection, setBoatDirection] = useState(0); // 0° = North (up)
 
+  // Coupled mode state
+  const [coupledMode, setCoupledMode] = useState(() => {
+    const saved = localStorage.getItem("coupledMode");
+    return saved ? JSON.parse(saved) : true;
+  });
+
   // Boat position state (offset from canvas center)
   const [boatOffsetX, setBoatOffsetX] = useState(0);
   const [boatOffsetY, setBoatOffsetY] = useState(0);
@@ -105,6 +111,7 @@ export function WindSimulator() {
     boatSpeed,
     trueWindSpeed,
     trueWindAngle,
+    coupledMode,
     setTrueWindSpeed,
     setTrueWindAngle,
     setBoatSpeed,
@@ -168,6 +175,10 @@ export function WindSimulator() {
   useEffect(() => {
     localStorage.setItem("autoHeadUpLull", JSON.stringify(autoHeadUpLull));
   }, [autoHeadUpLull]);
+
+  useEffect(() => {
+    localStorage.setItem("coupledMode", JSON.stringify(coupledMode));
+  }, [coupledMode]);
 
   // Load boat SVG
   useEffect(() => {
@@ -498,6 +509,7 @@ export function WindSimulator() {
     setLullSpeed(5);
     setAutoHeadUpGust(true);
     setAutoHeadUpLull(true);
+    setCoupledMode(true);
     setSimulationConfig({
       windBuildUpDuration: 2000,
       windDecayDuration: 6000,
@@ -648,6 +660,8 @@ export function WindSimulator() {
           onAutoHeadUpLullChange={setAutoHeadUpLull}
           simulationConfig={simulationConfig}
           onSimulationConfigChange={setSimulationConfig}
+          coupledMode={coupledMode}
+          onCoupledModeChange={setCoupledMode}
           onReset={handleReset}
         />
       </div>
@@ -679,6 +693,8 @@ export function WindSimulator() {
           onAutoHeadUpLullChange={setAutoHeadUpLull}
           simulationConfig={simulationConfig}
           onSimulationConfigChange={setSimulationConfig}
+          coupledMode={coupledMode}
+          onCoupledModeChange={setCoupledMode}
           onReset={handleReset}
         />
       </div>

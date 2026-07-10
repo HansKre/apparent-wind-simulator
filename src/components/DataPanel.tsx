@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SimulationConfig } from "../types/simulationConfig";
+import { CoupledModeToggle } from "./CoupledModeToggle";
 import { GustSimulationPanel } from "./GustSimulationPanel";
 import { LullSimulationPanel } from "./LullSimulationPanel";
 import { SimulationConfigDialog } from "./SimulationConfigDialog";
@@ -19,6 +20,8 @@ type Props = {
   onAutoHeadUpLullChange: (enabled: boolean) => void;
   simulationConfig: SimulationConfig;
   onSimulationConfigChange: (config: SimulationConfig) => void;
+  coupledMode: boolean;
+  onCoupledModeChange: (enabled: boolean) => void;
   onReset: () => void;
 };
 
@@ -37,6 +40,8 @@ export function DataPanel({
   onAutoHeadUpLullChange,
   simulationConfig,
   onSimulationConfigChange,
+  coupledMode,
+  onCoupledModeChange,
   onReset,
 }: Props) {
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
@@ -59,6 +64,10 @@ export function DataPanel({
           onLullSpeedChange={onLullSpeedChange}
           onSimulate={onSimulateLull}
           onAutoHeadUpChange={onAutoHeadUpLullChange}
+        />
+        <CoupledModeToggle
+          enabled={coupledMode}
+          onToggle={onCoupledModeChange}
         />
         <button
           onClick={() => setIsConfigDialogOpen(true)}
