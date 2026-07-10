@@ -13,7 +13,7 @@ export function ZoomControls({
 }: Props) {
   return (
     <div
-      className="absolute bottom-4 right-4 flex flex-col gap-2"
+      className="absolute bottom-4 right-[4.5rem] flex flex-col gap-2"
       data-testid="zoom-controls"
     >
       <button

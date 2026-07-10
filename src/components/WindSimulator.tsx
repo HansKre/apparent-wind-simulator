@@ -18,6 +18,7 @@ import {
 } from "../utils/windCalculations";
 import { DataPanel } from "./DataPanel";
 import { SimulationModal } from "./SimulationModal";
+import { TwsControls } from "./TwsControls";
 import { ZoomControls } from "./ZoomControls";
 
 export function WindSimulator() {
@@ -30,7 +31,7 @@ export function WindSimulator() {
   // Coupled mode state
   const [coupledMode, setCoupledMode] = useState(() => {
     const saved = localStorage.getItem("coupledMode");
-    return saved ? JSON.parse(saved) : true;
+    return saved ? JSON.parse(saved) : false;
   });
 
   // Boat position state (offset from canvas center)
@@ -496,6 +497,14 @@ export function WindSimulator() {
     setZoomLevel(1);
   }
 
+  function handleTwsIncrease() {
+    setTrueWindSpeed((prev) => Math.min(+(prev + 0.1).toFixed(1), 30));
+  }
+
+  function handleTwsDecrease() {
+    setTrueWindSpeed((prev) => Math.max(+(prev - 0.1).toFixed(1), 0.1));
+  }
+
   // Reset all values to initial state
   function handleReset() {
     setTrueWindSpeed(10);
@@ -613,9 +622,15 @@ export function WindSimulator() {
           onZoomReset={handleZoomReset}
         />
 
+        <TwsControls
+          trueWindSpeed={trueWindSpeed}
+          onIncrease={handleTwsIncrease}
+          onDecrease={handleTwsDecrease}
+        />
+
         {/* Speed control button - desktop only, positioned left of zoom controls */}
         <div
-          className="hidden lg:flex absolute bottom-4 right-[4.5rem] flex-col gap-2"
+          className="hidden lg:flex absolute bottom-4 right-[8.5rem] flex-col gap-2"
           data-testid="speed-controls-desktop"
         >
           <button
