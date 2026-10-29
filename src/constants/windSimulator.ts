@@ -6,8 +6,8 @@ export const COLORS = {
   noSailZoneActive: "rgba(239, 68, 68, 0.4)",
   noSailZoneBorder: "rgba(239, 68, 68, 0.5)",
   noSailZoneBorderActive: "rgba(239, 68, 68, 0.85)",
-  angleArc: "#fbbf24",
-  awsAngleArc: "#f87171",
+  angleArc: "#3b82f6",
+  awsAngleArc: "#ef4444",
 } as const;
 
 export const CANVAS_CONFIG = {

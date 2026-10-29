@@ -220,6 +220,12 @@ export function isPositionCollisionFree(
   return true;
 }
 
+export type ArrowLabelOptions = {
+  positionRatio?: number;
+  maxLabelDistance?: number;
+  allowOverlap?: boolean;
+};
+
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   startX: number,
@@ -237,7 +243,8 @@ export function drawArrow(
   isDashed: boolean = false,
   awayFromPoint?: { x: number; y: number },
   arrows?: ArrowSegment[],
-  boatBox?: { minX: number; maxX: number; minY: number; maxY: number }
+  boatBox?: { minX: number; maxX: number; minY: number; maxY: number },
+  arrowOptions?: ArrowLabelOptions
 ): LabelPosition | null {
   ctx.save();
 
@@ -314,8 +321,9 @@ export function drawArrow(
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
     ctx.shadowBlur = 4;
 
-    const midX = (startX + endX) / 2;
-    const midY = (startY + endY) / 2;
+    const t = arrowOptions?.positionRatio ?? 0.5;
+    const midX = startX + (endX - startX) * t;
+    const midY = startY + (endY - startY) * t;
     const labelText = `${speed.toFixed(1)} kt (${abbreviation})`;
 
     // Measure label dimensions
@@ -359,7 +367,10 @@ export function drawArrow(
       }
     }
 
-    const distances = [18, 26, 38, 54, 76, 105, 140];
+    const maxDist = arrowOptions?.maxLabelDistance ?? 140;
+    const allDistances = [14, 18, 24, 34, 48, 68, 95, 140];
+    const distances = allDistances.filter((d) => d <= maxDist);
+    if (distances.length === 0) distances.push(maxDist);
     const angleOffsets = [0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75];
 
     let labelX = 0;
@@ -395,10 +406,11 @@ export function drawArrow(
       if (foundPosition) break;
     }
 
-    // Fallback if no candidate cleared all constraints
+    // Fallback if no candidate cleared all constraints - stay close to the vector
+    const fallbackDist = Math.min(16, maxDist);
     if (!foundPosition) {
-      labelX = midX + 26 * Math.cos(primaryNormal);
-      labelY = midY + 26 * Math.sin(primaryNormal);
+      labelX = midX + fallbackDist * Math.cos(primaryNormal);
+      labelY = midY + fallbackDist * Math.sin(primaryNormal);
     }
 
     ctx.save();
@@ -455,12 +467,18 @@ export function drawAngleArc(
   ctx.restore();
 }
 
+export type LabelSegment = {
+  text: string;
+  color: string;
+};
+
 export type DrawAngleOptions = {
   radius?: number;
   color?: string;
   labelSuffix?: string;
   showLabel?: boolean;
   customLabelText?: string;
+  labelSegments?: LabelSegment[];
 };
 
 export function drawAngleBetweenArrows(
@@ -503,7 +521,10 @@ export function drawAngleBetweenArrows(
 
   // Calculate label position with collision avoidance
   const labelText =
-    options?.customLabelText ?? `${formatAngle(absDiff)}°${labelSuffix}`;
+    options?.customLabelText ??
+    (options?.labelSegments
+      ? options.labelSegments.map((s) => s.text).join("")
+      : `${formatAngle(absDiff)}°${labelSuffix}`);
   ctx.font = "bold 16px Inter, sans-serif";
 
   const metrics = ctx.measureText(labelText);
@@ -590,15 +611,32 @@ export function drawAngleBetweenArrows(
     labelY = y + (arcRadius + 50) * Math.sin(bisectorRad);
   }
 
-  ctx.fillStyle = arcColor;
-  ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.7)";
   ctx.shadowBlur = 8;
   ctx.font = "bold 16px Inter, sans-serif";
-  ctx.fillText(labelText, labelX, pointOfSailLabel ? labelY - 8 : labelY);
+
+  const textY = pointOfSailLabel ? labelY - 8 : labelY;
+
+  if (options?.labelSegments && options.labelSegments.length > 0) {
+    const totalText = options.labelSegments.map((s) => s.text).join("");
+    const totalWidth = ctx.measureText(totalText).width;
+    let curX = labelX - totalWidth / 2;
+    ctx.textAlign = "left";
+
+    for (const seg of options.labelSegments) {
+      ctx.fillStyle = seg.color;
+      ctx.fillText(seg.text, curX, textY);
+      curX += ctx.measureText(seg.text).width;
+    }
+  } else {
+    ctx.fillStyle = arcColor;
+    ctx.textAlign = "center";
+    ctx.fillText(labelText, labelX, textY);
+  }
 
   if (pointOfSailLabel) {
     ctx.font = "12px Inter, sans-serif";
+    ctx.textAlign = "center";
     ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
     ctx.fillText(pointOfSailLabel, labelX, labelY + 12);
   }

@@ -476,7 +476,12 @@ export function WindSimulator() {
       true,
       { x: trueWindTailX, y: trueWindTailY },
       arrowSegments,
-      boatBox
+      boatBox,
+      {
+        positionRatio: 0.3,
+        maxLabelDistance: 22,
+        allowOverlap: true,
+      }
     );
     if (awsLabel) labelPositions.push(awsLabel);
 
@@ -504,14 +509,12 @@ export function WindSimulator() {
       boatBox,
       {
         radius: CANVAS_CONFIG.angleBetweenAWSArrowsRadius,
-        color: COLORS.awsAngleArc,
+        color: COLORS.apparentWind,
         showLabel: false,
       }
     );
 
-    // Draw the primary angle arc (between IWS and TWS) with the combined label
-    const combinedAngleText = `${formatAngle(absDiff)}° TWA | ${formatAngle(absDiffAWS)}° AWA`;
-
+    // Draw the primary angle arc (between IWS and TWS) with the combined label colored to match arrows
     const angleLabel = drawAngleBetweenArrows(
       ctx,
       boatFrontX,
@@ -524,8 +527,15 @@ export function WindSimulator() {
       boatBox,
       {
         radius: CANVAS_CONFIG.angleBetweenArrowsRadius,
-        color: COLORS.angleArc,
-        customLabelText: combinedAngleText,
+        color: COLORS.trueWind,
+        labelSegments: [
+          { text: `${formatAngle(absDiff)}° TWA`, color: COLORS.trueWind },
+          { text: " | ", color: "rgba(255, 255, 255, 0.8)" },
+          {
+            text: `${formatAngle(absDiffAWS)}° AWA`,
+            color: COLORS.apparentWind,
+          },
+        ],
       }
     );
     if (angleLabel) labelPositions.push(angleLabel);
