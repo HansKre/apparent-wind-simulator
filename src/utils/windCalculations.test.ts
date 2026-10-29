@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   cartesianToPolar,
+  getPointOfSail,
   normalizeAngle,
   polarToCartesian,
 } from "./windCalculations";
@@ -228,6 +229,38 @@ describe("Wind Calculations", () => {
       expect(normalizeAngle(405)).toBe(45);
       expect(normalizeAngle(720)).toBe(0);
       expect(normalizeAngle(450)).toBe(90);
+    });
+  });
+
+  describe("getPointOfSail bilingual nautical labels", () => {
+    test("identifies Headwind / Im Wind (< 45°)", () => {
+      expect(getPointOfSail(0).label).toBe("Headwind / Im Wind");
+      expect(getPointOfSail(30).label).toBe("Headwind / Im Wind");
+      expect(getPointOfSail(340).label).toBe("Headwind / Im Wind");
+    });
+
+    test("identifies Close-hauled / Am Wind (45° - 75°)", () => {
+      expect(getPointOfSail(45).label).toBe("Close-hauled / Am Wind");
+      expect(getPointOfSail(60).label).toBe("Close-hauled / Am Wind");
+      expect(getPointOfSail(313.6).label).toBe("Close-hauled / Am Wind");
+    });
+
+    test("identifies Beam reach / Halber Wind (75° - 105°)", () => {
+      expect(getPointOfSail(80).label).toBe("Beam reach / Halber Wind");
+      expect(getPointOfSail(90).label).toBe("Beam reach / Halber Wind");
+      expect(getPointOfSail(100).label).toBe("Beam reach / Halber Wind");
+      expect(getPointOfSail(270).label).toBe("Beam reach / Halber Wind");
+    });
+
+    test("identifies Broad reach / Raumer Wind (105° - 155°)", () => {
+      expect(getPointOfSail(120).label).toBe("Broad reach / Raumer Wind");
+      expect(getPointOfSail(135).label).toBe("Broad reach / Raumer Wind");
+      expect(getPointOfSail(150).label).toBe("Broad reach / Raumer Wind");
+    });
+
+    test("identifies Running / Vor dem Wind (>= 155°)", () => {
+      expect(getPointOfSail(160).label).toBe("Running / Vor dem Wind");
+      expect(getPointOfSail(180).label).toBe("Running / Vor dem Wind");
     });
   });
 });

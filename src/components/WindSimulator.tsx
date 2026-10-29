@@ -5,15 +5,16 @@ import { useGustSimulation } from "../hooks/useGustSimulation";
 import { useLullSimulation } from "../hooks/useLullSimulation";
 import { useSimulationConfig } from "../hooks/useSimulationConfig";
 import {
-  drawAngleArc,
+  ArrowSegment,
   drawAngleBetweenArrows,
   drawArrow,
   drawBoat,
   drawGoNoGoZone,
+  LabelPosition,
 } from "../utils/canvasDrawing";
 import {
   cartesianToPolar,
-  normalizeAngle,
+  getPointOfSail,
   polarToCartesian,
 } from "../utils/windCalculations";
 import { DataPanel } from "./DataPanel";
@@ -23,8 +24,8 @@ import { ZoomControls } from "./ZoomControls";
 
 export function WindSimulator() {
   // Wind state
-  const [trueWindSpeed, setTrueWindSpeed] = useState(10);
-  const [trueWindAngle, setTrueWindAngle] = useState(250); // 250° = WSW
+  const [trueWindSpeed, setTrueWindSpeed] = useState(12);
+  const [trueWindAngle, setTrueWindAngle] = useState(90); // TWS at 90° (horizontal on right side of boat at 12 kts)
   const [boatSpeed, setBoatSpeed] = useState(6);
   const [boatDirection, setBoatDirection] = useState(0); // 0° = North (up)
 
@@ -194,16 +195,11 @@ export function WindSimulator() {
     img.src = "/boat.svg";
   }, []);
 
-  // Calculate apparent wind using vector addition
-  // Apparent wind = True wind + Induced wind (boat speed in opposite direction)
-  // First, get the vectors in Cartesian coordinates
+  // Calculate apparent wind from the wind vector parallelogram:
+  // Apparent wind vector connects from dashedInducedStart to the bow
   const trueWindVector = polarToCartesian(trueWindSpeed, trueWindAngle);
-  const inducedWindVector = polarToCartesian(
-    boatSpeed,
-    normalizeAngle(boatDirection + 180)
-  );
+  const inducedWindVector = polarToCartesian(boatSpeed, boatDirection);
 
-  // Add the vectors
   const apparentWindX = trueWindVector.x + inducedWindVector.x;
   const apparentWindY = trueWindVector.y + inducedWindVector.y;
 
@@ -286,40 +282,42 @@ export function WindSimulator() {
     // Clear canvas
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
 
-    // Calculate vector endpoints for the triangle
+    // Calculate vector endpoints for the wind vector parallelogram:
     // Boat front: The bow of the boat extends in the direction of travel
     const boatFrontOffset = 40 * zoomLevel; // pixels from center to front of boat (scaled with zoom)
     const boatFrontVector = polarToCartesian(boatFrontOffset, boatDirection);
     const boatFrontX = boatX + boatFrontVector.x;
     const boatFrontY = boatY + boatFrontVector.y;
 
-    // Induced wind: arrow comes from opposite direction to boat, ending at boat front
-    // Arrow points TOWARD boat front, with arrowhead AT boat front
-    // Vector points in the same direction as boat (to position start point on opposite side)
-    const inducedVectorDirection = polarToCartesian(
-      boatSpeed * scale,
-      normalizeAngle(boatDirection + 180)
-    );
-    const inducedStartX = boatFrontX - inducedVectorDirection.x; // Start in opposite direction from boat
-    const inducedStartY = boatFrontY - inducedVectorDirection.y;
-    const inducedEndX = boatFrontX; // Arrow ends at boat front with arrowhead pointing at boat
+    // 1. Solid Induced wind (IWS): points toward the bow
+    const inducedVector = polarToCartesian(boatSpeed * scale, boatDirection);
+    const inducedStartX = boatFrontX + inducedVector.x;
+    const inducedStartY = boatFrontY + inducedVector.y;
+    const inducedEndX = boatFrontX;
     const inducedEndY = boatFrontY;
 
-    // True wind: arrowhead connects to START of induced wind (the end away from boat)
+    // 2. Solid True wind (TWS): points toward the bow
     const trueWindVector = polarToCartesian(
       trueWindSpeed * scale,
       trueWindAngle
     );
-    const trueWindHeadX = inducedStartX;
-    const trueWindHeadY = inducedStartY;
-    const trueWindTailX = inducedStartX - trueWindVector.x;
-    const trueWindTailY = inducedStartY - trueWindVector.y;
+    const trueWindHeadX = boatFrontX;
+    const trueWindHeadY = boatFrontY;
+    const trueWindTailX = boatFrontX + trueWindVector.x;
+    const trueWindTailY = boatFrontY + trueWindVector.y;
 
-    // Apparent wind: closes the triangle from true wind tail to boat front
-    const apparentHeadX = boatFrontX;
-    const apparentHeadY = boatFrontY;
-    const apparentTailX = trueWindTailX;
-    const apparentTailY = trueWindTailY;
+    // 3. Additional Dashed Induced wind: points to the outer end (tail) of the TWS vector
+    // Same color, same length, same direction as solid IWS
+    const dashedInducedStartX = trueWindTailX + inducedVector.x;
+    const dashedInducedStartY = trueWindTailY + inducedVector.y;
+    const dashedInducedEndX = trueWindTailX;
+    const dashedInducedEndY = trueWindTailY;
+
+    // 4. Dashed Apparent wind (AWS): connects from the end of dashed IWS to the front of the bow
+    const apparentStartX = dashedInducedStartX;
+    const apparentStartY = dashedInducedStartY;
+    const apparentEndX = boatFrontX;
+    const apparentEndY = boatFrontY;
 
     // Draw vectors (from start to end, with arrowhead at end)
     drawBoat(ctx, boatX, boatY, boatDirection, zoomLevel, boatImageRef.current);
@@ -327,15 +325,49 @@ export function WindSimulator() {
     // Draw go-no-go zone BEFORE other arrows so they appear on top
     drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
 
-    // Draw arrows with label collision detection
-    // Track label positions to prevent overlap
-    const labelPositions: Array<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }> = [];
+    // Assemble all 4 arrow segments and boat bounding box for collision avoidance
+    const arrowSegments: ArrowSegment[] = [
+      {
+        name: "solid-iws",
+        startX: inducedStartX,
+        startY: inducedStartY,
+        endX: inducedEndX,
+        endY: inducedEndY,
+      },
+      {
+        name: "solid-tws",
+        startX: trueWindTailX,
+        startY: trueWindTailY,
+        endX: trueWindHeadX,
+        endY: trueWindHeadY,
+      },
+      {
+        name: "dashed-iws",
+        startX: dashedInducedStartX,
+        startY: dashedInducedStartY,
+        endX: dashedInducedEndX,
+        endY: dashedInducedEndY,
+      },
+      {
+        name: "dashed-aws",
+        startX: apparentStartX,
+        startY: apparentStartY,
+        endX: apparentEndX,
+        endY: apparentEndY,
+      },
+    ];
 
+    const boatBox = {
+      minX: boatX - 25 * zoomLevel,
+      maxX: boatX + 25 * zoomLevel,
+      minY: boatY - 45 * zoomLevel,
+      maxY: boatY + 45 * zoomLevel,
+    };
+
+    // Track label positions to prevent overlap
+    const labelPositions: LabelPosition[] = [];
+
+    // Draw solid IWS arrow
     const iwsLabel = drawArrow(
       ctx,
       inducedStartX,
@@ -349,10 +381,15 @@ export function WindSimulator() {
       false,
       boatSpeed,
       "IWS",
-      labelPositions
+      labelPositions,
+      false,
+      { x: trueWindTailX, y: trueWindTailY },
+      arrowSegments,
+      boatBox
     );
     if (iwsLabel) labelPositions.push(iwsLabel);
 
+    // Draw solid TWS arrow
     const twsLabel = drawArrow(
       ctx,
       trueWindTailX,
@@ -366,16 +403,42 @@ export function WindSimulator() {
       false,
       trueWindSpeed,
       "TWS",
-      labelPositions
+      labelPositions,
+      false,
+      { x: inducedStartX, y: inducedStartY },
+      arrowSegments,
+      boatBox
     );
     if (twsLabel) labelPositions.push(twsLabel);
 
+    // Draw additional dashed IWS arrow pointing to the end of the TWS vector
+    drawArrow(
+      ctx,
+      dashedInducedStartX,
+      dashedInducedStartY,
+      dashedInducedEndX,
+      dashedInducedEndY,
+      COLORS.inducedWind,
+      false,
+      false,
+      false,
+      false,
+      undefined,
+      undefined,
+      labelPositions,
+      true,
+      undefined,
+      arrowSegments,
+      boatBox
+    );
+
+    // Draw dashed AWS arrow connecting end of dashed IWS to the front of the bow
     const awsLabel = drawArrow(
       ctx,
-      apparentTailX,
-      apparentTailY,
-      apparentHeadX,
-      apparentHeadY,
+      apparentStartX,
+      apparentStartY,
+      apparentEndX,
+      apparentEndY,
       COLORS.apparentWind,
       false,
       false,
@@ -383,46 +446,44 @@ export function WindSimulator() {
       false,
       apparentWindSpeed,
       "AWS",
-      labelPositions
+      labelPositions,
+      true,
+      { x: trueWindTailX, y: trueWindTailY },
+      arrowSegments,
+      boatBox
     );
     if (awsLabel) labelPositions.push(awsLabel);
 
-    // Calculate bow directions as shown above
+    // Calculate bow directions for IWS and newly positioned TWS
     const iwsAngleAtBow =
       (Math.atan2(inducedStartY - boatFrontY, inducedStartX - boatFrontX) *
         180) /
       Math.PI;
 
-    const awsAngleAtBow =
-      (Math.atan2(apparentTailY - boatFrontY, apparentTailX - boatFrontX) *
+    const twsAngleAtBow =
+      (Math.atan2(trueWindTailY - boatFrontY, trueWindTailX - boatFrontX) *
         180) /
       Math.PI;
 
-    // Draw the angle arc with collision detection
+    let diff = twsAngleAtBow - iwsAngleAtBow;
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    const absDiff = Math.abs(diff);
+    const pointOfSail = getPointOfSail(absDiff);
+
+    // Draw the angle arc with collision detection between IWS and TWS
     const angleLabel = drawAngleBetweenArrows(
       ctx,
       boatFrontX,
       boatFrontY,
       iwsAngleAtBow,
-      awsAngleAtBow,
-      labelPositions
+      twsAngleAtBow,
+      labelPositions,
+      pointOfSail.label,
+      arrowSegments,
+      boatBox
     );
     if (angleLabel) labelPositions.push(angleLabel);
-
-    // Draw angle arc if dragging
-    if (dragState.isDragging) {
-      if (dragState.dragType === "trueWind") {
-        drawAngleArc(
-          ctx,
-          trueWindTailX,
-          trueWindTailY,
-          trueWindAngle,
-          COLORS.trueWind
-        );
-      } else if (dragState.dragType === "inducedWind") {
-        drawAngleArc(ctx, boatX, boatY, boatDirection, COLORS.inducedWind);
-      }
-    }
 
     // Draw animation step in top right
     const currentAnimationStep = isSimulatingGust
@@ -507,8 +568,8 @@ export function WindSimulator() {
 
   // Reset all values to initial state
   function handleReset() {
-    setTrueWindSpeed(10);
-    setTrueWindAngle(250);
+    setTrueWindSpeed(12);
+    setTrueWindAngle(90);
     setBoatSpeed(6);
     setBoatDirection(0);
     setBoatOffsetX(0);

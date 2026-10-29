@@ -141,3 +141,45 @@ export function getWindDirectionAbbr(angle: number): string {
   const index = Math.round(normalized / 45) % 8;
   return directions[index];
 }
+
+export type PointOfSail = {
+  en: string;
+  de: string;
+  label: string;
+};
+
+/**
+ * Get nautical point of sail (Segelkurs) based on relative wind angle (0° to 180°)
+ */
+export function getPointOfSail(relativeAngleDeg: number): PointOfSail {
+  let angle = Math.abs(normalizeAngle(relativeAngleDeg));
+  if (angle > 180) angle = 360 - angle;
+
+  if (angle < 45) {
+    return { en: "Headwind", de: "Im Wind", label: "Headwind / Im Wind" };
+  } else if (angle < 75) {
+    return {
+      en: "Close-hauled",
+      de: "Am Wind",
+      label: "Close-hauled / Am Wind",
+    };
+  } else if (angle < 105) {
+    return {
+      en: "Beam reach",
+      de: "Halber Wind",
+      label: "Beam reach / Halber Wind",
+    };
+  } else if (angle < 155) {
+    return {
+      en: "Broad reach",
+      de: "Raumer Wind",
+      label: "Broad reach / Raumer Wind",
+    };
+  } else {
+    return {
+      en: "Running",
+      de: "Vor dem Wind",
+      label: "Running / Vor dem Wind",
+    };
+  }
+}

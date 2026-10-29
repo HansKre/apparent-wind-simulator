@@ -256,7 +256,7 @@ export function useLullSimulation({
               );
               const inducedWindVector = polarToCartesian(
                 currentBoatSpeed,
-                normalizeAngle(targetBoatDir + 180)
+                targetBoatDir
               );
 
               const apparentWindX = trueWindVector.x + inducedWindVector.x;
@@ -267,9 +267,8 @@ export function useLullSimulation({
               );
               const apparentWindAngle = apparentPolar.angle;
 
-              // Calculate current angle between apparent wind and induced wind
-              const inducedWindAngle = normalizeAngle(targetBoatDir + 180);
-              let angleDiff = apparentWindAngle - inducedWindAngle;
+              // Calculate current angle between apparent wind and boat direction
+              let angleDiff = apparentWindAngle - targetBoatDir;
 
               // Normalize angle difference to -180 to 180 range
               if (angleDiff > 180) angleDiff -= 360;

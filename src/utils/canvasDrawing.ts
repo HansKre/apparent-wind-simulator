@@ -108,6 +108,115 @@ export type LabelPosition = {
   height: number;
 };
 
+export type ArrowSegment = {
+  name?: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+};
+
+/**
+ * Exact line-segment to Axis-Aligned Bounding Box (AABB) intersection using Liang-Barsky
+ */
+export function segmentIntersectsAABB(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number
+): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+
+  const p = [-dx, dx, -dy, dy];
+  const q = [x1 - minX, maxX - x1, y1 - minY, maxY - y1];
+
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) {
+      if (q[i] < 0) return false;
+    } else {
+      const t = q[i] / p[i];
+      if (p[i] < 0) {
+        if (t > t1) return false;
+        if (t > t0) t0 = t;
+      } else {
+        if (t < t0) return false;
+        if (t < t1) t1 = t;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Checks if a candidate label position is free from collisions with arrows, labels, and the boat
+ */
+export function isPositionCollisionFree(
+  cx: number,
+  cy: number,
+  width: number,
+  height: number,
+  padding: number,
+  arrows?: ArrowSegment[],
+  existingLabels?: LabelPosition[],
+  boatBox?: { minX: number; maxX: number; minY: number; maxY: number }
+): boolean {
+  const minX = cx - width / 2 - padding;
+  const maxX = cx + width / 2 + padding;
+  const minY = cy - height / 2 - padding;
+  const maxY = cy + height / 2 + padding;
+
+  if (arrows) {
+    for (const a of arrows) {
+      if (
+        segmentIntersectsAABB(
+          a.startX,
+          a.startY,
+          a.endX,
+          a.endY,
+          minX,
+          minY,
+          maxX,
+          maxY
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+
+  if (existingLabels) {
+    for (const l of existingLabels) {
+      const lMinX = l.x - l.width / 2 - padding;
+      const lMaxX = l.x + l.width / 2 + padding;
+      const lMinY = l.y - l.height / 2 - padding;
+      const lMaxY = l.y + l.height / 2 + padding;
+      if (minX < lMaxX && maxX > lMinX && minY < lMaxY && maxY > lMinY) {
+        return false;
+      }
+    }
+  }
+
+  if (boatBox) {
+    if (
+      minX < boatBox.maxX &&
+      maxX > boatBox.minX &&
+      minY < boatBox.maxY &&
+      maxY > boatBox.minY
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   startX: number,
@@ -121,7 +230,11 @@ export function drawArrow(
   dragHandleAtEnd: boolean = false,
   speed?: number,
   abbreviation?: string,
-  existingLabels?: LabelPosition[]
+  existingLabels?: LabelPosition[],
+  isDashed: boolean = false,
+  awayFromPoint?: { x: number; y: number },
+  arrows?: ArrowSegment[],
+  boatBox?: { minX: number; maxX: number; minY: number; maxY: number }
 ): LabelPosition | null {
   ctx.save();
 
@@ -132,10 +245,16 @@ export function drawArrow(
 
   ctx.strokeStyle = color;
   ctx.lineWidth = isDragging ? 5 : 3;
+  if (isDashed) {
+    ctx.setLineDash([8, 6]);
+  } else {
+    ctx.setLineDash([]);
+  }
   ctx.beginPath();
   ctx.moveTo(startX, startY);
   ctx.lineTo(endX, endY);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   const dx = endX - startX;
   const dy = endY - startY;
@@ -195,71 +314,68 @@ export function drawArrow(
     const midY = (startY + endY) / 2;
     const labelText = `${speed.toFixed(1)} kt (${abbreviation})`;
 
-    // Measure label dimensions with extra padding to prevent overlap
+    // Measure label dimensions
     const metrics = ctx.measureText(labelText);
-    const labelWidth = metrics.width + 50; // Extra padding for safety
-    const labelHeight = 50; // Generous height estimate
+    const labelWidth = metrics.width + 24;
+    const labelHeight = 32;
 
-    // Aggressive spacing buffer to ensure labels never touch
-    const SPACING_BUFFER = 30;
+    let primaryNormal = angle + Math.PI / 2;
+    let secondaryNormal = angle - Math.PI / 2;
 
-    // Try different label positions to avoid overlap
-    // Start with closer positions, then move progressively further away
-    const labelOffsets = [
-      { offset: 40, angleOffset: Math.PI / 2 }, // Right perpendicular
-      { offset: 40, angleOffset: -Math.PI / 2 }, // Left perpendicular
-      { offset: 40, angleOffset: 0 }, // Along arrow direction
-      { offset: 40, angleOffset: Math.PI }, // Opposite arrow direction
-      { offset: 60, angleOffset: Math.PI / 2 }, // Further right
-      { offset: 60, angleOffset: -Math.PI / 2 }, // Further left
-      { offset: 60, angleOffset: Math.PI / 4 }, // Diagonal right
-      { offset: 60, angleOffset: -Math.PI / 4 }, // Diagonal left
-      { offset: 60, angleOffset: (3 * Math.PI) / 4 }, // Diagonal back-right
-      { offset: 60, angleOffset: (-3 * Math.PI) / 4 }, // Diagonal back-left
-      { offset: 80, angleOffset: Math.PI / 2 }, // Far right
-      { offset: 80, angleOffset: -Math.PI / 2 }, // Far left
-      { offset: 80, angleOffset: Math.PI / 3 }, // 60° right
-      { offset: 80, angleOffset: -Math.PI / 3 }, // 60° left
-      { offset: 100, angleOffset: Math.PI / 2 }, // Very far right
-      { offset: 100, angleOffset: -Math.PI / 2 }, // Very far left
-      { offset: 100, angleOffset: 0 }, // Very far forward
-      { offset: 100, angleOffset: Math.PI }, // Very far back
-      { offset: 120, angleOffset: Math.PI / 2 }, // Extremely far right
-      { offset: 120, angleOffset: -Math.PI / 2 }, // Extremely far left
-    ];
+    if (awayFromPoint) {
+      const d1 =
+        Math.pow(midX + Math.cos(primaryNormal) - awayFromPoint.x, 2) +
+        Math.pow(midY + Math.sin(primaryNormal) - awayFromPoint.y, 2);
+      const d2 =
+        Math.pow(midX + Math.cos(secondaryNormal) - awayFromPoint.x, 2) +
+        Math.pow(midY + Math.sin(secondaryNormal) - awayFromPoint.y, 2);
+      if (d2 > d1) {
+        const temp = primaryNormal;
+        primaryNormal = secondaryNormal;
+        secondaryNormal = temp;
+      }
+    }
+
+    const distances = [28, 42, 58, 78, 100, 130, 160];
+    const angleOffsets = [0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75];
 
     let labelX = 0;
     let labelY = 0;
     let foundPosition = false;
 
-    for (const { offset, angleOffset } of labelOffsets) {
-      const testAngle = angle + angleOffset;
-      const testX = midX + offset * Math.cos(testAngle);
-      const testY = midY + offset * Math.sin(testAngle);
+    for (const dist of distances) {
+      for (const aOff of angleOffsets) {
+        for (const baseN of [primaryNormal, secondaryNormal]) {
+          const testX = midX + dist * Math.cos(baseN + aOff);
+          const testY = midY + dist * Math.sin(baseN + aOff);
 
-      // Check if this position overlaps with any existing labels
-      const overlaps = existingLabels?.some((existing) => {
-        const dx = Math.abs(testX - existing.x);
-        const dy = Math.abs(testY - existing.y);
-        return (
-          dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
-          dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER
-        );
-      });
-
-      if (!overlaps) {
-        labelX = testX;
-        labelY = testY;
-        foundPosition = true;
-        break;
+          if (
+            isPositionCollisionFree(
+              testX,
+              testY,
+              labelWidth,
+              labelHeight,
+              6,
+              arrows,
+              existingLabels,
+              boatBox
+            )
+          ) {
+            labelX = testX;
+            labelY = testY;
+            foundPosition = true;
+            break;
+          }
+        }
+        if (foundPosition) break;
       }
+      if (foundPosition) break;
     }
 
-    // If no non-overlapping position found, use a very far offset
+    // Fallback if no candidate cleared all constraints
     if (!foundPosition) {
-      const perpAngle = angle + Math.PI / 2;
-      labelX = midX + 150 * Math.cos(perpAngle);
-      labelY = midY + 150 * Math.sin(perpAngle);
+      labelX = midX + 100 * Math.cos(primaryNormal);
+      labelY = midY + 100 * Math.sin(primaryNormal);
     }
 
     ctx.fillText(labelText, labelX, labelY);
@@ -317,17 +433,20 @@ export function drawAngleBetweenArrows(
   x: number,
   y: number,
   iwsAngle: number,
-  awsAngle: number,
-  existingLabels?: LabelPosition[]
+  twsAngle: number,
+  existingLabels?: LabelPosition[],
+  pointOfSailLabel?: string,
+  arrows?: ArrowSegment[],
+  boatBox?: { minX: number; maxX: number; minY: number; maxY: number }
 ): LabelPosition | null {
   ctx.save();
-  let diff = awsAngle - iwsAngle;
+  let diff = twsAngle - iwsAngle;
   while (diff > 180) diff -= 360;
   while (diff < -180) diff += 360;
   const absDiff = Math.abs(diff);
 
   const startRad = degToRad(iwsAngle);
-  const endRad = degToRad(awsAngle);
+  const endRad = degToRad(twsAngle);
 
   ctx.strokeStyle = COLORS.angleArc;
   ctx.lineWidth = 3;
@@ -349,58 +468,97 @@ export function drawAngleBetweenArrows(
   ctx.font = "bold 16px Inter, sans-serif";
 
   const metrics = ctx.measureText(labelText);
-  const labelWidth = metrics.width + 50;
-  const labelHeight = 50;
+  let labelWidth = metrics.width + 30;
+  let labelHeight = 36;
 
-  // Try different positions around the arc - more positions, further away
-  const angleOffsets = [24, 36, 12, 48, 0, -12, -24, 60, -36, 72, -48, 90, -60];
-  const radiusOffsets = [16, 26, 36, 46, 56, 66, 76, 6];
+  if (pointOfSailLabel) {
+    ctx.font = "12px Inter, sans-serif";
+    const posMetrics = ctx.measureText(pointOfSailLabel);
+    labelWidth = Math.max(labelWidth, posMetrics.width + 20);
+    labelHeight = 52;
+  }
+
+  // Find the bisector angle between the two arrows
+  const sign = diff >= 0 ? 1 : -1;
+  const bisectorRad = startRad + sign * degToRad(absDiff / 2);
+
+  // Generate radial and fan candidates
+  const candidates: Array<{ x: number; y: number; dist: number }> = [];
+  const distances = [40, 55, 75, 95, 120, 150, 180];
+  const angleOffsets = [
+    0,
+    0.2,
+    -0.2,
+    0.4,
+    -0.4,
+    0.8,
+    -0.8,
+    Math.PI / 2,
+    -Math.PI / 2,
+    Math.PI,
+  ];
+
+  for (const dist of distances) {
+    for (const aOff of angleOffsets) {
+      candidates.push({
+        x: x + dist * Math.cos(bisectorRad + aOff),
+        y: y + dist * Math.sin(bisectorRad + aOff),
+        dist,
+      });
+    }
+  }
+
+  // Sort candidates by closeness to the arc
+  candidates.sort(
+    (a, b) =>
+      Math.abs(a.dist - CANVAS_CONFIG.angleBetweenArrowsRadius - 20) -
+      Math.abs(b.dist - CANVAS_CONFIG.angleBetweenArrowsRadius - 20)
+  );
 
   let labelX = 0;
   let labelY = 0;
   let foundPosition = false;
-  const SPACING_BUFFER = 30;
 
-  for (const angleOffset of angleOffsets) {
-    for (const radiusOffset of radiusOffsets) {
-      const labelRad = degToRad(awsAngle + angleOffset);
-      const labelRadius = CANVAS_CONFIG.angleBetweenArrowsRadius + radiusOffset;
-      const testX = x + labelRadius * Math.cos(labelRad);
-      const testY = y + labelRadius * Math.sin(labelRad);
-
-      // Check for overlaps
-      const overlaps = existingLabels?.some((existing) => {
-        const dx = Math.abs(testX - existing.x);
-        const dy = Math.abs(testY - existing.y);
-        return (
-          dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
-          dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER
-        );
-      });
-
-      if (!overlaps) {
-        labelX = testX;
-        labelY = testY;
-        foundPosition = true;
-        break;
-      }
+  for (const c of candidates) {
+    if (
+      isPositionCollisionFree(
+        c.x,
+        c.y,
+        labelWidth,
+        labelHeight,
+        6,
+        arrows,
+        existingLabels,
+        boatBox
+      )
+    ) {
+      labelX = c.x;
+      labelY = c.y;
+      foundPosition = true;
+      break;
     }
-    if (foundPosition) break;
   }
 
-  // Fallback position if no good spot found
   if (!foundPosition) {
-    const labelRad = degToRad(awsAngle + 24);
-    const labelRadius = CANVAS_CONFIG.angleBetweenArrowsRadius + 90;
-    labelX = x + labelRadius * Math.cos(labelRad);
-    labelY = y + labelRadius * Math.sin(labelRad);
+    labelX =
+      x + (CANVAS_CONFIG.angleBetweenArrowsRadius + 60) * Math.cos(bisectorRad);
+    labelY =
+      y + (CANVAS_CONFIG.angleBetweenArrowsRadius + 60) * Math.sin(bisectorRad);
   }
 
   ctx.fillStyle = COLORS.angleArc;
   ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.7)";
   ctx.shadowBlur = 8;
-  ctx.fillText(labelText, labelX, labelY);
+  ctx.font = "bold 16px Inter, sans-serif";
+  ctx.fillText(labelText, labelX, pointOfSailLabel ? labelY - 8 : labelY);
+
+  if (pointOfSailLabel) {
+    ctx.font = "12px Inter, sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.fillText(pointOfSailLabel, labelX, labelY + 12);
+  }
+
   ctx.restore();
 
   return {

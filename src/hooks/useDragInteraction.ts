@@ -111,19 +111,16 @@ export function useDragInteraction({
     const boatFrontX = boatX + boatFrontVector.x;
     const boatFrontY = boatY + boatFrontVector.y;
 
-    const inducedVectorDirection = polarToCartesian(
-      boatSpeed * scale,
-      normalizeAngle(boatDirection + 180)
-    );
-    const inducedStartX = boatFrontX - inducedVectorDirection.x;
-    const inducedStartY = boatFrontY - inducedVectorDirection.y;
+    const inducedVector = polarToCartesian(boatSpeed * scale, boatDirection);
+    const inducedStartX = boatFrontX + inducedVector.x;
+    const inducedStartY = boatFrontY + inducedVector.y;
 
     const trueWindVector = polarToCartesian(
       trueWindSpeed * scale,
       trueWindAngle
     );
-    const trueWindTailX = inducedStartX - trueWindVector.x;
-    const trueWindTailY = inducedStartY - trueWindVector.y;
+    const trueWindTailX = boatFrontX + trueWindVector.x;
+    const trueWindTailY = boatFrontY + trueWindVector.y;
 
     return {
       boatFrontX,
@@ -287,9 +284,9 @@ export function useDragInteraction({
       // When dragging true wind tail, calculate the vector
       const positions = calculateVectorPositions();
 
-      // True wind vector is from pointer (tail) to induced wind start
-      const trueWindX = positions.inducedStartX - pointerX;
-      const trueWindY = positions.inducedStartY - pointerY;
+      // True wind vector is from boat front to pointer (tail)
+      const trueWindX = pointerX - positions.boatFrontX;
+      const trueWindY = pointerY - positions.boatFrontY;
       const { speed: newTrueSpeed, angle: newTrueAngle } = cartesianToPolar(
         trueWindX,
         trueWindY
@@ -313,9 +310,9 @@ export function useDragInteraction({
       const boatFrontX = boatX + boatFrontVector.x;
       const boatFrontY = boatY + boatFrontVector.y;
 
-      // Vector from pointer (start/drag point) to boat front (end/arrowhead)
-      const dx = boatFrontX - pointerX;
-      const dy = boatFrontY - pointerY;
+      // Vector from boat front to pointer (start/drag point)
+      const dx = pointerX - boatFrontX;
+      const dy = pointerY - boatFrontY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // The arrow length (from pointer to boat front) represents the boat speed
@@ -336,11 +333,9 @@ export function useDragInteraction({
       // Below 3 knots, dragging only affects the arrow length (speed), not direction
       // This prevents the boat from flipping and allows smooth reduction to zero
       if (newSpeed >= 3) {
-        // Calculate the angle the arrow points (from start to end)
+        // Calculate the angle from boat front to pointer
         const { angle: arrowAngle } = cartesianToPolar(dx, dy);
-        // The arrow points in direction arrowAngle (opposite to boat movement)
-        // So boat moves in the opposite direction
-        setBoatDirection(normalizeAngle(arrowAngle + 180));
+        setBoatDirection(normalizeAngle(arrowAngle));
       }
       // If speed < 3 knots, we keep the current boat direction
     } else if (dragState.dragType === "boat") {
