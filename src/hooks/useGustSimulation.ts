@@ -234,7 +234,10 @@ export function useGustSimulation({
             config.autoRotationDuration > 0
               ? config.autoRotationDuration
               : totalDuration - headingChangeDelay;
-          const rotationProgress = Math.min(1, timeSinceDelay / rotationDuration);
+          const rotationProgress = Math.min(
+            1,
+            timeSinceDelay / rotationDuration
+          );
 
           // During rotation period, continuously calculate target to maintain 45°
           if (rotationProgress < 1 || config.autoRotationDuration === 0) {

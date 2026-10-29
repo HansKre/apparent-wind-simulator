@@ -1,4 +1,7 @@
-import { SimulationConfig, DEFAULT_SIMULATION_CONFIG } from "../types/simulationConfig";
+import {
+  SimulationConfig,
+  DEFAULT_SIMULATION_CONFIG,
+} from "../types/simulationConfig";
 import { SimulationConfigPanel } from "./SimulationConfigPanel";
 
 type Props = {

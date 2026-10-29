@@ -206,26 +206,26 @@ export function drawArrow(
     // Try different label positions to avoid overlap
     // Start with closer positions, then move progressively further away
     const labelOffsets = [
-      { offset: 40, angleOffset: Math.PI / 2 },       // Right perpendicular
-      { offset: 40, angleOffset: -Math.PI / 2 },      // Left perpendicular
-      { offset: 40, angleOffset: 0 },                 // Along arrow direction
-      { offset: 40, angleOffset: Math.PI },           // Opposite arrow direction
-      { offset: 60, angleOffset: Math.PI / 2 },       // Further right
-      { offset: 60, angleOffset: -Math.PI / 2 },      // Further left
-      { offset: 60, angleOffset: Math.PI / 4 },       // Diagonal right
-      { offset: 60, angleOffset: -Math.PI / 4 },      // Diagonal left
-      { offset: 60, angleOffset: 3 * Math.PI / 4 },   // Diagonal back-right
-      { offset: 60, angleOffset: -3 * Math.PI / 4 },  // Diagonal back-left
-      { offset: 80, angleOffset: Math.PI / 2 },       // Far right
-      { offset: 80, angleOffset: -Math.PI / 2 },      // Far left
-      { offset: 80, angleOffset: Math.PI / 3 },       // 60° right
-      { offset: 80, angleOffset: -Math.PI / 3 },      // 60° left
-      { offset: 100, angleOffset: Math.PI / 2 },      // Very far right
-      { offset: 100, angleOffset: -Math.PI / 2 },     // Very far left
-      { offset: 100, angleOffset: 0 },                // Very far forward
-      { offset: 100, angleOffset: Math.PI },          // Very far back
-      { offset: 120, angleOffset: Math.PI / 2 },      // Extremely far right
-      { offset: 120, angleOffset: -Math.PI / 2 },     // Extremely far left
+      { offset: 40, angleOffset: Math.PI / 2 }, // Right perpendicular
+      { offset: 40, angleOffset: -Math.PI / 2 }, // Left perpendicular
+      { offset: 40, angleOffset: 0 }, // Along arrow direction
+      { offset: 40, angleOffset: Math.PI }, // Opposite arrow direction
+      { offset: 60, angleOffset: Math.PI / 2 }, // Further right
+      { offset: 60, angleOffset: -Math.PI / 2 }, // Further left
+      { offset: 60, angleOffset: Math.PI / 4 }, // Diagonal right
+      { offset: 60, angleOffset: -Math.PI / 4 }, // Diagonal left
+      { offset: 60, angleOffset: (3 * Math.PI) / 4 }, // Diagonal back-right
+      { offset: 60, angleOffset: (-3 * Math.PI) / 4 }, // Diagonal back-left
+      { offset: 80, angleOffset: Math.PI / 2 }, // Far right
+      { offset: 80, angleOffset: -Math.PI / 2 }, // Far left
+      { offset: 80, angleOffset: Math.PI / 3 }, // 60° right
+      { offset: 80, angleOffset: -Math.PI / 3 }, // 60° left
+      { offset: 100, angleOffset: Math.PI / 2 }, // Very far right
+      { offset: 100, angleOffset: -Math.PI / 2 }, // Very far left
+      { offset: 100, angleOffset: 0 }, // Very far forward
+      { offset: 100, angleOffset: Math.PI }, // Very far back
+      { offset: 120, angleOffset: Math.PI / 2 }, // Extremely far right
+      { offset: 120, angleOffset: -Math.PI / 2 }, // Extremely far left
     ];
 
     let labelX = 0;
@@ -238,11 +238,13 @@ export function drawArrow(
       const testY = midY + offset * Math.sin(testAngle);
 
       // Check if this position overlaps with any existing labels
-      const overlaps = existingLabels?.some(existing => {
+      const overlaps = existingLabels?.some((existing) => {
         const dx = Math.abs(testX - existing.x);
         const dy = Math.abs(testY - existing.y);
-        return dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
-               dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER;
+        return (
+          dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
+          dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER
+        );
       });
 
       if (!overlaps) {
@@ -269,7 +271,7 @@ export function drawArrow(
       x: labelX,
       y: labelY,
       width: labelWidth,
-      height: labelHeight
+      height: labelHeight,
     };
   }
 
@@ -367,11 +369,13 @@ export function drawAngleBetweenArrows(
       const testY = y + labelRadius * Math.sin(labelRad);
 
       // Check for overlaps
-      const overlaps = existingLabels?.some(existing => {
+      const overlaps = existingLabels?.some((existing) => {
         const dx = Math.abs(testX - existing.x);
         const dy = Math.abs(testY - existing.y);
-        return dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
-               dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER;
+        return (
+          dx < (labelWidth + existing.width) / 2 + SPACING_BUFFER &&
+          dy < (labelHeight + existing.height) / 2 + SPACING_BUFFER
+        );
       });
 
       if (!overlaps) {
@@ -403,6 +407,6 @@ export function drawAngleBetweenArrows(
     x: labelX,
     y: labelY,
     width: labelWidth,
-    height: labelHeight
+    height: labelHeight,
   };
 }

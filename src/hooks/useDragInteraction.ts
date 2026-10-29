@@ -100,8 +100,8 @@ export function useDragInteraction({
   ): { x: number; y: number } {
     const rect = canvas.getBoundingClientRect();
     return {
-      x: ((touch1.clientX + touch2.clientX) / 2 - rect.left),
-      y: ((touch1.clientY + touch2.clientY) / 2 - rect.top),
+      x: (touch1.clientX + touch2.clientX) / 2 - rect.left,
+      y: (touch1.clientY + touch2.clientY) / 2 - rect.top,
     };
   }
 
@@ -147,7 +147,12 @@ export function useDragInteraction({
 
     // Check if clicking on true wind arrow tail (drag handle) - highest priority
     if (
-      distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20
+      distance(
+        pointerX,
+        pointerY,
+        positions.trueWindTailX,
+        positions.trueWindTailY
+      ) < 20
     ) {
       setDragState({
         isDragging: true,
@@ -161,7 +166,12 @@ export function useDragInteraction({
 
     // Check if clicking on induced wind arrow start (drag handle - the end away from boat)
     if (
-      distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20
+      distance(
+        pointerX,
+        pointerY,
+        positions.inducedStartX,
+        positions.inducedStartY
+      ) < 20
     ) {
       setDragState({
         isDragging: true,
@@ -244,9 +254,19 @@ export function useDragInteraction({
 
       // Check if hovering over any drag handle
       const hoveringTrueWind =
-        distance(pointerX, pointerY, positions.trueWindTailX, positions.trueWindTailY) < 20;
+        distance(
+          pointerX,
+          pointerY,
+          positions.trueWindTailX,
+          positions.trueWindTailY
+        ) < 20;
       const hoveringInducedWind =
-        distance(pointerX, pointerY, positions.inducedStartX, positions.inducedStartY) < 20;
+        distance(
+          pointerX,
+          pointerY,
+          positions.inducedStartX,
+          positions.inducedStartY
+        ) < 20;
 
       // Always show grab cursor since we can drag from anywhere
       // (handles take priority and will show grab cursor too)
@@ -355,11 +375,17 @@ export function useDragInteraction({
 
       // Calculate zoom factor based on distance change
       const scale = currentDistance / pinchState.initialDistance;
-      const newZoom = Math.max(0.5, Math.min(3, pinchState.initialZoom * scale));
+      const newZoom = Math.max(
+        0.5,
+        Math.min(3, pinchState.initialZoom * scale)
+      );
       setZoomLevel(newZoom);
 
       // Calculate pan based on midpoint movement
-      if (pinchState.lastPanX !== undefined && pinchState.lastPanY !== undefined) {
+      if (
+        pinchState.lastPanX !== undefined &&
+        pinchState.lastPanY !== undefined
+      ) {
         const deltaX = midpoint.x - pinchState.lastPanX;
         const deltaY = midpoint.y - pinchState.lastPanY;
 

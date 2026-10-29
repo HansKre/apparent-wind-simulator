@@ -35,8 +35,13 @@ export function SimulationConfigPanel({
   }
 
   return (
-    <div className="glass rounded-2xl p-6 shadow-xl" data-testid={`${color}-config-panel`}>
-      <h3 className={`${colors.text} font-bold text-xl mb-4 flex items-center gap-2`}>
+    <div
+      className="glass rounded-2xl p-6 shadow-xl"
+      data-testid={`${color}-config-panel`}
+    >
+      <h3
+        className={`${colors.text} font-bold text-xl mb-4 flex items-center gap-2`}
+      >
         <div className={`w-4 h-4 ${colors.bg} rounded-full`}></div>
         {title}
       </h3>
