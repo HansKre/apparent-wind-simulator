@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { COLORS } from "../constants/windSimulator";
+import { CANVAS_CONFIG, COLORS } from "../constants/windSimulator";
 import { useDragInteraction } from "../hooks/useDragInteraction";
 import { useGustSimulation } from "../hooks/useGustSimulation";
 import { useLullSimulation } from "../hooks/useLullSimulation";
@@ -14,6 +14,7 @@ import {
 } from "../utils/canvasDrawing";
 import {
   cartesianToPolar,
+  formatAngle,
   getPointOfSail,
   polarToCartesian,
 } from "../utils/windCalculations";
@@ -319,11 +320,36 @@ export function WindSimulator() {
     const apparentEndX = boatFrontX;
     const apparentEndY = boatFrontY;
 
+    // Calculate bow directions for IWS and TWS
+    const iwsAngleAtBow =
+      (Math.atan2(inducedStartY - boatFrontY, inducedStartX - boatFrontX) *
+        180) /
+      Math.PI;
+
+    const twsAngleAtBow =
+      (Math.atan2(trueWindTailY - boatFrontY, trueWindTailX - boatFrontX) *
+        180) /
+      Math.PI;
+
+    let diff = twsAngleAtBow - iwsAngleAtBow;
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    const absDiff = Math.abs(diff);
+    const pointOfSail = getPointOfSail(absDiff);
+    const isInNoSailZone = absDiff < 45;
+
     // Draw vectors (from start to end, with arrowhead at end)
     drawBoat(ctx, boatX, boatY, boatDirection, zoomLevel, boatImageRef.current);
 
-    // Draw go-no-go zone BEFORE other arrows so they appear on top
-    drawGoNoGoZone(ctx, boatFrontX, boatFrontY, boatDirection, canvasSize);
+    // Draw go-no-go zone BEFORE other arrows so they appear on top (darker red when in no-sail area)
+    drawGoNoGoZone(
+      ctx,
+      boatFrontX,
+      boatFrontY,
+      boatDirection,
+      canvasSize,
+      isInNoSailZone
+    );
 
     // Assemble all 4 arrow segments and boat bounding box for collision avoidance
     const arrowSegments: ArrowSegment[] = [
@@ -454,24 +480,38 @@ export function WindSimulator() {
     );
     if (awsLabel) labelPositions.push(awsLabel);
 
-    // Calculate bow directions for IWS and newly positioned TWS
-    const iwsAngleAtBow =
-      (Math.atan2(inducedStartY - boatFrontY, inducedStartX - boatFrontX) *
+    // Calculate bow direction for AWS vector
+    const awsAngleAtBow =
+      (Math.atan2(apparentStartY - boatFrontY, apparentStartX - boatFrontX) *
         180) /
       Math.PI;
 
-    const twsAngleAtBow =
-      (Math.atan2(trueWindTailY - boatFrontY, trueWindTailX - boatFrontX) *
-        180) /
-      Math.PI;
+    let diffAWS = awsAngleAtBow - iwsAngleAtBow;
+    while (diffAWS > 180) diffAWS -= 360;
+    while (diffAWS < -180) diffAWS += 360;
+    const absDiffAWS = Math.abs(diffAWS);
 
-    let diff = twsAngleAtBow - iwsAngleAtBow;
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
-    const absDiff = Math.abs(diff);
-    const pointOfSail = getPointOfSail(absDiff);
+    // Draw the second angle arc (between IWS and AWS) without a standalone label
+    drawAngleBetweenArrows(
+      ctx,
+      boatFrontX,
+      boatFrontY,
+      iwsAngleAtBow,
+      awsAngleAtBow,
+      labelPositions,
+      undefined,
+      arrowSegments,
+      boatBox,
+      {
+        radius: CANVAS_CONFIG.angleBetweenAWSArrowsRadius,
+        color: COLORS.awsAngleArc,
+        showLabel: false,
+      }
+    );
 
-    // Draw the angle arc with collision detection between IWS and TWS
+    // Draw the primary angle arc (between IWS and TWS) with the combined label
+    const combinedAngleText = `${formatAngle(absDiff)}° TWA | ${formatAngle(absDiffAWS)}° AWA`;
+
     const angleLabel = drawAngleBetweenArrows(
       ctx,
       boatFrontX,
@@ -481,7 +521,12 @@ export function WindSimulator() {
       labelPositions,
       pointOfSail.label,
       arrowSegments,
-      boatBox
+      boatBox,
+      {
+        radius: CANVAS_CONFIG.angleBetweenArrowsRadius,
+        color: COLORS.angleArc,
+        customLabelText: combinedAngleText,
+      }
     );
     if (angleLabel) labelPositions.push(angleLabel);
 

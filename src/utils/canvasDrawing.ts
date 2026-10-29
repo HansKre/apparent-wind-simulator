@@ -61,7 +61,8 @@ export function drawGoNoGoZone(
   x: number,
   y: number,
   boatDirection: number,
-  canvasSize: { width: number; height: number }
+  canvasSize: { width: number; height: number },
+  isActive: boolean = false
 ) {
   ctx.save();
 
@@ -79,7 +80,7 @@ export function drawGoNoGoZone(
   const leftPoint = polarToCartesian(noSailZoneRadius, leftBoundary);
   const rightPoint = polarToCartesian(noSailZoneRadius, rightBoundary);
 
-  ctx.fillStyle = COLORS.noSailZone;
+  ctx.fillStyle = isActive ? COLORS.noSailZoneActive : COLORS.noSailZone;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x + leftPoint.x, y + leftPoint.y);
@@ -87,8 +88,10 @@ export function drawGoNoGoZone(
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = COLORS.noSailZoneBorder;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = isActive
+    ? COLORS.noSailZoneBorderActive
+    : COLORS.noSailZoneBorder;
+  ctx.lineWidth = isActive ? 2.5 : 2;
   ctx.setLineDash([8, 4]);
   ctx.beginPath();
   ctx.moveTo(x, y);
@@ -307,7 +310,8 @@ export function drawArrow(
     ctx.fillStyle = "#ffffff";
     ctx.font = "14px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
     ctx.shadowBlur = 4;
 
     const midX = (startX + endX) / 2;
@@ -316,8 +320,27 @@ export function drawArrow(
 
     // Measure label dimensions
     const metrics = ctx.measureText(labelText);
-    const labelWidth = metrics.width + 24;
-    const labelHeight = 32;
+    const labelWidth = metrics.width + 20;
+    const labelHeight = 24;
+
+    // Vector points from start to end; arrow tip is at end (or start if arrowheadAtStart).
+    // Tilt angle runs in direction from arrow-tip towards the outer end.
+    let tipToEndAngle = arrowheadAtStart
+      ? Math.atan2(endY - startY, endX - startX)
+      : Math.atan2(startY - endY, startX - endX);
+
+    // Auto-flip upright so text is never upside-down on screen
+    if (tipToEndAngle > Math.PI / 2) {
+      tipToEndAngle -= Math.PI;
+    } else if (tipToEndAngle < -Math.PI / 2) {
+      tipToEndAngle += Math.PI;
+    }
+
+    // Rotated AABB for collision avoidance
+    const cosT = Math.abs(Math.cos(tipToEndAngle));
+    const sinT = Math.abs(Math.sin(tipToEndAngle));
+    const aabbWidth = labelWidth * cosT + labelHeight * sinT;
+    const aabbHeight = labelWidth * sinT + labelHeight * cosT;
 
     let primaryNormal = angle + Math.PI / 2;
     let secondaryNormal = angle - Math.PI / 2;
@@ -336,7 +359,7 @@ export function drawArrow(
       }
     }
 
-    const distances = [28, 42, 58, 78, 100, 130, 160];
+    const distances = [18, 26, 38, 54, 76, 105, 140];
     const angleOffsets = [0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75];
 
     let labelX = 0;
@@ -353,9 +376,9 @@ export function drawArrow(
             isPositionCollisionFree(
               testX,
               testY,
-              labelWidth,
-              labelHeight,
-              6,
+              aabbWidth,
+              aabbHeight,
+              4,
               arrows,
               existingLabels,
               boatBox
@@ -374,11 +397,15 @@ export function drawArrow(
 
     // Fallback if no candidate cleared all constraints
     if (!foundPosition) {
-      labelX = midX + 100 * Math.cos(primaryNormal);
-      labelY = midY + 100 * Math.sin(primaryNormal);
+      labelX = midX + 26 * Math.cos(primaryNormal);
+      labelY = midY + 26 * Math.sin(primaryNormal);
     }
 
-    ctx.fillText(labelText, labelX, labelY);
+    ctx.save();
+    ctx.translate(labelX, labelY);
+    ctx.rotate(tipToEndAngle);
+    ctx.fillText(labelText, 0, 0);
+    ctx.restore();
 
     ctx.restore();
 
@@ -386,8 +413,8 @@ export function drawArrow(
     return {
       x: labelX,
       y: labelY,
-      width: labelWidth,
-      height: labelHeight,
+      width: aabbWidth,
+      height: aabbHeight,
     };
   }
 
@@ -428,6 +455,14 @@ export function drawAngleArc(
   ctx.restore();
 }
 
+export type DrawAngleOptions = {
+  radius?: number;
+  color?: string;
+  labelSuffix?: string;
+  showLabel?: boolean;
+  customLabelText?: string;
+};
+
 export function drawAngleBetweenArrows(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -437,7 +472,8 @@ export function drawAngleBetweenArrows(
   existingLabels?: LabelPosition[],
   pointOfSailLabel?: string,
   arrows?: ArrowSegment[],
-  boatBox?: { minX: number; maxX: number; minY: number; maxY: number }
+  boatBox?: { minX: number; maxX: number; minY: number; maxY: number },
+  options?: DrawAngleOptions
 ): LabelPosition | null {
   ctx.save();
   let diff = twsAngle - iwsAngle;
@@ -448,23 +484,26 @@ export function drawAngleBetweenArrows(
   const startRad = degToRad(iwsAngle);
   const endRad = degToRad(twsAngle);
 
-  ctx.strokeStyle = COLORS.angleArc;
+  const arcRadius = options?.radius ?? CANVAS_CONFIG.angleBetweenArrowsRadius;
+  const arcColor = options?.color ?? COLORS.angleArc;
+  const labelSuffix = options?.labelSuffix ?? "";
+
+  ctx.strokeStyle = arcColor;
   ctx.lineWidth = 3;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.arc(
-    x,
-    y,
-    CANVAS_CONFIG.angleBetweenArrowsRadius,
-    startRad,
-    endRad,
-    diff < 0
-  );
+  ctx.arc(x, y, arcRadius, startRad, endRad, diff < 0);
   ctx.stroke();
   ctx.setLineDash([]);
 
+  if (options?.showLabel === false) {
+    ctx.restore();
+    return null;
+  }
+
   // Calculate label position with collision avoidance
-  const labelText = `${formatAngle(absDiff)}°`;
+  const labelText =
+    options?.customLabelText ?? `${formatAngle(absDiff)}°${labelSuffix}`;
   ctx.font = "bold 16px Inter, sans-serif";
 
   const metrics = ctx.measureText(labelText);
@@ -484,7 +523,15 @@ export function drawAngleBetweenArrows(
 
   // Generate radial and fan candidates
   const candidates: Array<{ x: number; y: number; dist: number }> = [];
-  const distances = [40, 55, 75, 95, 120, 150, 180];
+  const distances = [
+    arcRadius + 14,
+    arcRadius + 28,
+    arcRadius + 48,
+    arcRadius + 70,
+    arcRadius + 95,
+    arcRadius + 125,
+    arcRadius + 160,
+  ];
   const angleOffsets = [
     0,
     0.2,
@@ -511,8 +558,7 @@ export function drawAngleBetweenArrows(
   // Sort candidates by closeness to the arc
   candidates.sort(
     (a, b) =>
-      Math.abs(a.dist - CANVAS_CONFIG.angleBetweenArrowsRadius - 20) -
-      Math.abs(b.dist - CANVAS_CONFIG.angleBetweenArrowsRadius - 20)
+      Math.abs(a.dist - arcRadius - 20) - Math.abs(b.dist - arcRadius - 20)
   );
 
   let labelX = 0;
@@ -540,13 +586,11 @@ export function drawAngleBetweenArrows(
   }
 
   if (!foundPosition) {
-    labelX =
-      x + (CANVAS_CONFIG.angleBetweenArrowsRadius + 60) * Math.cos(bisectorRad);
-    labelY =
-      y + (CANVAS_CONFIG.angleBetweenArrowsRadius + 60) * Math.sin(bisectorRad);
+    labelX = x + (arcRadius + 50) * Math.cos(bisectorRad);
+    labelY = y + (arcRadius + 50) * Math.sin(bisectorRad);
   }
 
-  ctx.fillStyle = COLORS.angleArc;
+  ctx.fillStyle = arcColor;
   ctx.textAlign = "center";
   ctx.shadowColor = "rgba(0,0,0,0.7)";
   ctx.shadowBlur = 8;

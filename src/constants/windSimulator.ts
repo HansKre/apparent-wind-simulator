@@ -3,8 +3,11 @@ export const COLORS = {
   inducedWind: "#10b981",
   apparentWind: "#ef4444",
   noSailZone: "rgba(239, 68, 68, 0.15)",
+  noSailZoneActive: "rgba(239, 68, 68, 0.4)",
   noSailZoneBorder: "rgba(239, 68, 68, 0.5)",
+  noSailZoneBorderActive: "rgba(239, 68, 68, 0.85)",
   angleArc: "#fbbf24",
+  awsAngleArc: "#f87171",
 } as const;
 
 export const CANVAS_CONFIG = {
@@ -13,7 +16,8 @@ export const CANVAS_CONFIG = {
   dragHandleRadius: 20, // hit detection radius for drag handles
   arrowLength: 15, // arrowhead size
   angleArcRadius: 60,
-  angleBetweenArrowsRadius: 38,
+  angleBetweenArrowsRadius: 48,
+  angleBetweenAWSArrowsRadius: 26,
 } as const;
 
 export const WIND_LIMITS = {

@@ -7,6 +7,7 @@ import {
   calculateApparentWindVector,
   calculateVectorEndpoints,
 } from "./vectorCalculations";
+import { formatAngle } from "./windCalculations";
 
 describe("Vector Endpoints & Triangle Layout", () => {
   test("TWS connects directly to the boat front (bow)", () => {
@@ -276,6 +277,200 @@ describe("Vector Endpoints & Triangle Layout", () => {
           boatBox
         )
       ).toBe(true);
+    });
+  });
+
+  describe("No-Sail Area & Second Angle (AWA) Calculations", () => {
+    test("Identifies TWS inside no-sail area when angle is less than 45°", () => {
+      const centerX = 400;
+      const centerY = 300;
+      const scale = 15;
+      const zoomLevel = 1;
+
+      // Boat heading North (0°), TWS at 30° (< 45°)
+      const endpointsIn = calculateVectorEndpoints(
+        centerX,
+        centerY,
+        12,
+        30,
+        6,
+        0,
+        scale,
+        zoomLevel
+      );
+
+      const iwsAngleAtBowIn =
+        (Math.atan2(
+          endpointsIn.inducedStartY - endpointsIn.boatFrontY,
+          endpointsIn.inducedStartX - endpointsIn.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      const twsAngleAtBowIn =
+        (Math.atan2(
+          endpointsIn.trueWindTailY - endpointsIn.boatFrontY,
+          endpointsIn.trueWindTailX - endpointsIn.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      let diffIn = twsAngleAtBowIn - iwsAngleAtBowIn;
+      while (diffIn > 180) diffIn -= 360;
+      while (diffIn < -180) diffIn += 360;
+      const absDiffIn = Math.abs(diffIn);
+
+      expect(absDiffIn).toBeCloseTo(30, 1);
+      expect(absDiffIn < 45).toBe(true);
+
+      // Boat heading North (0°), TWS at 60° (>= 45°)
+      const endpointsOut = calculateVectorEndpoints(
+        centerX,
+        centerY,
+        12,
+        60,
+        6,
+        0,
+        scale,
+        zoomLevel
+      );
+
+      const iwsAngleAtBowOut =
+        (Math.atan2(
+          endpointsOut.inducedStartY - endpointsOut.boatFrontY,
+          endpointsOut.inducedStartX - endpointsOut.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      const twsAngleAtBowOut =
+        (Math.atan2(
+          endpointsOut.trueWindTailY - endpointsOut.boatFrontY,
+          endpointsOut.trueWindTailX - endpointsOut.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      let diffOut = twsAngleAtBowOut - iwsAngleAtBowOut;
+      while (diffOut > 180) diffOut -= 360;
+      while (diffOut < -180) diffOut += 360;
+      const absDiffOut = Math.abs(diffOut);
+
+      expect(absDiffOut).toBeCloseTo(60, 1);
+      expect(absDiffOut < 45).toBe(false);
+    });
+
+    test("Calculates second angle (between IWS and AWS) correctly at the bow", () => {
+      const centerX = 400;
+      const centerY = 300;
+      const scale = 15;
+      const zoomLevel = 1;
+
+      // Initial state: TWS = 12 kts at 90°, Boat Speed = 6 kts heading 0° (North)
+      // AWS vector has speed √(12² + 6²) ≈ 13.42 kts, AWA ≈ 63.43°
+      const endpoints = calculateVectorEndpoints(
+        centerX,
+        centerY,
+        12,
+        90,
+        6,
+        0,
+        scale,
+        zoomLevel
+      );
+
+      const iwsAngleAtBow =
+        (Math.atan2(
+          endpoints.inducedStartY - endpoints.boatFrontY,
+          endpoints.inducedStartX - endpoints.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      const awsAngleAtBow =
+        (Math.atan2(
+          endpoints.apparentTailY - endpoints.boatFrontY,
+          endpoints.apparentTailX - endpoints.boatFrontX
+        ) *
+          180) /
+        Math.PI;
+
+      let diffAWS = awsAngleAtBow - iwsAngleAtBow;
+      while (diffAWS > 180) diffAWS -= 360;
+      while (diffAWS < -180) diffAWS += 360;
+      const absDiffAWS = Math.abs(diffAWS);
+
+      expect(absDiffAWS).toBeCloseTo(63.43, 1);
+      // AWA must be less than TWA (90°)
+      expect(absDiffAWS).toBeLessThan(90);
+
+      // Verify combined angle label formatting
+      const twa = 90;
+      const combinedLabel = `${formatAngle(twa)}° TWA | ${formatAngle(absDiffAWS)}° AWA`;
+      expect(combinedLabel).toBe("90° TWA | 63° AWA");
+    });
+  });
+
+  describe("Tilted Vector Label Math & Upright Normalization", () => {
+    function getNormalizedTiltAngle(
+      startX: number,
+      startY: number,
+      endX: number,
+      endY: number,
+      arrowheadAtStart = false
+    ) {
+      let angle = arrowheadAtStart
+        ? Math.atan2(endY - startY, endX - startX)
+        : Math.atan2(startY - endY, startX - endX);
+
+      if (angle > Math.PI / 2) {
+        angle -= Math.PI;
+      } else if (angle < -Math.PI / 2) {
+        angle += Math.PI;
+      }
+      return angle;
+    }
+
+    test("Tilt angle direction is from arrow-tip towards end and auto-flipped upright", () => {
+      // 1. Vector pointing South (arrow-tip at 100, 200; tail at 100, 100)
+      // Tip-to-tail direction is North (straight up): angle = -PI/2
+      const angleSouth = getNormalizedTiltAngle(100, 100, 100, 200);
+      expect(angleSouth).toBeCloseTo(-Math.PI / 2, 5);
+
+      // 2. Vector pointing West (arrow-tip at 100, 100; tail at 200, 100)
+      // Tip-to-tail direction is East (straight right): angle = 0
+      const angleWest = getNormalizedTiltAngle(200, 100, 100, 100);
+      expect(angleWest).toBeCloseTo(0, 5);
+
+      // 3. Vector pointing East (arrow-tip at 200, 100; tail at 100, 100)
+      // Tip-to-tail direction is West (straight left): Math.atan2 is PI, auto-flipped to 0 (upright horizontal!)
+      const angleEast = getNormalizedTiltAngle(100, 100, 200, 100);
+      expect(angleEast).toBeCloseTo(0, 5);
+
+      // 4. Vector pointing at 45° (down-right: dx = 100, dy = 100)
+      // Tip is at (200, 200), tail is at (100, 100)
+      // Tip-to-tail is (-100, -100): angle = -135° (-3*PI/4). Auto-flipped upright (+PI) gives +45° (PI/4)!
+      const angleDiagonal = getNormalizedTiltAngle(100, 100, 200, 200);
+      expect(angleDiagonal).toBeCloseTo(Math.PI / 4, 5);
+      expect(angleDiagonal).toBeGreaterThanOrEqual(-Math.PI / 2);
+      expect(angleDiagonal).toBeLessThanOrEqual(Math.PI / 2);
+    });
+
+    test("Rotated AABB dimension calculation expands appropriately", () => {
+      const labelWidth = 100;
+      const labelHeight = 24;
+
+      // At 0 rad (horizontal), AABB is exact width and height
+      const cos0 = Math.abs(Math.cos(0));
+      const sin0 = Math.abs(Math.sin(0));
+      expect(labelWidth * cos0 + labelHeight * sin0).toBeCloseTo(100, 5);
+      expect(labelWidth * sin0 + labelHeight * cos0).toBeCloseTo(24, 5);
+
+      // At PI/2 rad (vertical), dimensions swap
+      const cos90 = Math.abs(Math.cos(Math.PI / 2));
+      const sin90 = Math.abs(Math.sin(Math.PI / 2));
+      expect(labelWidth * cos90 + labelHeight * sin90).toBeCloseTo(24, 5);
+      expect(labelWidth * sin90 + labelHeight * cos90).toBeCloseTo(100, 5);
     });
   });
 });
